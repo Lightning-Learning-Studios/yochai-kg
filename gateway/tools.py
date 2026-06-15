@@ -193,7 +193,14 @@ async def browse_constellation(constellation_id: str | None = None, galaxy_id: s
             "MATCH (c:CanonicalConcept)-[:IN_CONSTELLATION]->(con:Constellation {constellation_id:$id}) "
             "RETURN c.canonical_id AS canonical_id, c.name AS name, c.difficulty AS difficulty, c.is_keystone AS is_keystone "
             "ORDER BY c.is_keystone DESC, c.name LIMIT $n", {"id": constellation_id, "n": config.MAX_LIMIT})
-        return {"constellation": con[0] if con else None, "member_count": len(members), "concepts": members}
+        entry_points = await read(
+            "MATCH (con:Constellation {constellation_id:$id})-[:ENTRY_POINT]->(c:CanonicalConcept) "
+            "RETURN c.canonical_id AS canonical_id, c.name AS name, c.difficulty AS difficulty", {"id": constellation_id})
+        bridges = await read(
+            "MATCH (con:Constellation {constellation_id:$id})-[:BRIDGES]-(other:Constellation) "
+            "RETURN DISTINCT other.constellation_id AS constellation_id, other.name AS name", {"id": constellation_id})
+        return {"constellation": con[0] if con else None, "member_count": len(members),
+                "concepts": members, "entry_points": entry_points, "bridges_to": bridges}
     where = "WHERE con.galaxy_id = $gid" if galaxy_id else ""
     rows = await read(
         f"MATCH (con:Constellation) {where} RETURN con.constellation_id AS constellation_id, con.name AS name, "
@@ -242,3 +249,123 @@ async def list_texts(genre: str | None = None, limit: int | None = None) -> dict
         f"MATCH (t:Text) {where} RETURN t.slug AS slug, t.title AS title, t.genre AS genre, "
         "t.era AS era, t.author AS author ORDER BY t.title LIMIT $n", {"genre": genre, "n": n})
     return {"genre": genre, "count": len(rows), "texts": rows}
+
+
+# ---------------------------------------------------------------------------
+# Full-coverage tools — every node label and relationship type in the graph.
+# ---------------------------------------------------------------------------
+
+# entity_type values in the graph (largest first).
+ENTITY_TYPES = [
+    "teaching", "interpretive_claim", "tension", "theme", "concept", "question",
+    "language_token", "citation", "object", "person", "value", "argument",
+    "collective", "place",
+]
+
+
+async def search_entities(query: str, entity_type: str | None = None, limit: int | None = None) -> dict[str, Any]:
+    """Search the extraction layer (2.5M entities: people, places, themes, concepts,
+    teachings, tensions, questions, …) by name/description. Optionally filter by
+    entity_type (see ENTITY_TYPES). This layer is LLM-extracted — rich evidence,
+    not adjudicated truth."""
+    n = config.clamp_limit(limit)
+    safe = " ".join(w for w in __import__("re").findall(r"[\w֐-׿]+", query) if len(w) > 1)
+    cypher = """
+    CALL db.index.fulltext.queryNodes('entity_name_fulltext', $q) YIELD node AS e, score
+    WHERE $etype IS NULL OR e.entity_type = $etype
+    RETURN e.entity_id AS entity_id, e.name AS name, e.name_hebrew AS name_hebrew,
+           e.entity_type AS entity_type, e.description AS description,
+           e.domain AS domain, e.text_slug AS text_slug, score
+    ORDER BY score DESC LIMIT $n
+    """
+    rows = await read(cypher, {"q": safe or query, "etype": entity_type, "n": n})
+    return {"query": query, "entity_type": entity_type, "count": len(rows), "entities": rows}
+
+
+async def get_related_entities(entity_id: str, rel_types: list[str] | None = None, limit: int | None = None) -> dict[str, Any]:
+    """Entity-to-entity relationships discovered within texts. rel_types filters on:
+    DEVELOPS, CONTRADICTS, EXEMPLIFIES, APPLIES_TO, CONTEXTUALIZES, EQUIVALENT."""
+    n = config.clamp_limit(limit)
+    cypher = """
+    MATCH (e:Entity {entity_id: $id})-[r:DEVELOPS|CONTRADICTS|EXEMPLIFIES|APPLIES_TO|CONTEXTUALIZES|EQUIVALENT]-(o:Entity)
+    WHERE $rel_types IS NULL OR type(r) IN $rel_types
+    RETURN o.entity_id AS entity_id, o.name AS name, o.entity_type AS entity_type,
+           type(r) AS relationship, r.confidence AS confidence, r.evidence_count AS evidence_count
+    ORDER BY r.confidence DESC LIMIT $n
+    """
+    rows = await read(cypher, {"id": entity_id, "rel_types": rel_types, "n": n})
+    return {"entity_id": entity_id, "count": len(rows), "related": rows}
+
+
+async def get_talmudic_structure(reference: str) -> dict[str, Any]:
+    """For a Talmudic passage, return its sugya (driving question, conclusion/maskana,
+    type) and the ordered dialectical moves (question/answer/objection/proof, speaker,
+    stratum). Pass a sugya_id or a TextUnit canonical_id (e.g. 'bavli-arakhin_3_1')."""
+    ref = reference.strip()
+    sugya = await read(
+        "MATCH (s:Sugya) WHERE s.sugya_id = $ref OR toLower(s.canonical_reference) = toLower($ref) "
+        "OR EXISTS { (s)-[:LOCATED_IN]->(:TextUnit {canonical_id: $ref}) } "
+        "RETURN s.sugya_id AS sugya_id, s.text_slug AS text_slug, s.canonical_reference AS canonical_reference, "
+        "s.sugya_type AS sugya_type, s.driving_question AS driving_question, "
+        "s.conclusion_status AS conclusion_status, s.maskana AS maskana LIMIT 1", {"ref": ref})
+    if not sugya:
+        return {"reference": reference, "found": False, "hint": "Pass a sugya_id or a Talmud TextUnit canonical_id like 'bavli-berakhot_5_1'."}
+    sid = sugya[0]["sugya_id"]
+    moves = await read(
+        "MATCH (m:Move)-[:PART_OF]->(s:Sugya {sugya_id: $sid}) "
+        "RETURN m.sequence AS sequence, m.move_type AS move_type, m.marker AS marker, "
+        "m.marker_translation AS marker_translation, m.speaker AS speaker, m.stratum AS stratum, "
+        "m.content_summary AS content_summary ORDER BY m.sequence", {"sid": sid})
+    return {"reference": reference, "found": True, "sugya": sugya[0], "move_count": len(moves), "moves": moves}
+
+
+async def get_corridors_for_text(text_slug: str, limit: int | None = None) -> dict[str, Any]:
+    """List the learning corridors built over a text, with their module count."""
+    n = config.clamp_limit(limit)
+    rows = await read(
+        "MATCH (t:Text {slug: $slug})-[:HAS_CORRIDOR]->(c:Corridor) "
+        "RETURN c.corridor_id AS corridor_id, c.title AS title, c.total_modules AS total_modules "
+        "ORDER BY c.corridor_id LIMIT $n", {"slug": text_slug, "n": n})
+    return {"text_slug": text_slug, "count": len(rows), "corridors": rows}
+
+
+async def get_corridor(corridor_id: str, limit: int | None = None) -> dict[str, Any]:
+    """A corridor's ordered learning modules (concept, domain, anchor quote). Modules
+    are sequenced by module_number and linked LEADS_TO in study order."""
+    n = max(config.clamp_limit(limit), config.MAX_LIMIT)
+    rows = await read(
+        "MATCH (c:Corridor {corridor_id: $id})-[:HAS_MODULE]->(m:CorridorModule) "
+        "RETURN m.module_id AS module_id, m.module_number AS module_number, m.concept_name AS concept_name, "
+        "m.domain AS domain, m.anchor_quote AS anchor_quote, m.anchor_id AS anchor_id, m.stance AS stance "
+        "ORDER BY m.module_number LIMIT $n", {"id": corridor_id, "n": n})
+    for r in rows:
+        r["deep_link"] = _deep_link(r.get("anchor_id"))
+    return {"corridor_id": corridor_id, "module_count": len(rows), "modules": rows}
+
+
+async def get_concept_sources(canonical_id: str, limit: int | None = None) -> dict[str, Any]:
+    """The actual corpus passages that ground a canonical concept (via the modules
+    that instantiate it). Use this to read the texts behind an abstract concept."""
+    n = config.clamp_limit(limit)
+    rows = await read(
+        f"""
+        MATCH (c:CanonicalConcept {{canonical_id: $id}})<-[:INSTANCE_OF]-(m:CorridorModule)-[:COVERS]->(su:SemanticUnit)
+        MATCH (su)-[:BELONGS_TO]->(t:Text)
+        WITH DISTINCT su, t
+        RETURN {_SU_FIELDS}, null AS similarity
+        LIMIT $n
+        """, {"id": canonical_id, "n": n})
+    return {"canonical_id": canonical_id, "count": len(rows), "passages": [_passage(r) for r in rows]}
+
+
+async def get_temporal_neighbors(canonical_id: str, limit: int | None = None) -> dict[str, Any]:
+    """Chronological context: concepts that historically precede or follow this one
+    (TEMPORAL_PRECEDES — distinct from the pedagogical PREREQUISITE order)."""
+    n = config.clamp_limit(limit)
+    precedes = await read(
+        "MATCH (a:CanonicalConcept)-[:TEMPORAL_PRECEDES]->(c:CanonicalConcept {canonical_id:$id}) "
+        "RETURN a.canonical_id AS canonical_id, a.name AS name, a.era_span AS era_span LIMIT $n", {"id": canonical_id, "n": n})
+    follows = await read(
+        "MATCH (c:CanonicalConcept {canonical_id:$id})-[:TEMPORAL_PRECEDES]->(b:CanonicalConcept) "
+        "RETURN b.canonical_id AS canonical_id, b.name AS name, b.era_span AS era_span LIMIT $n", {"id": canonical_id, "n": n})
+    return {"canonical_id": canonical_id, "earlier": precedes, "later": follows}

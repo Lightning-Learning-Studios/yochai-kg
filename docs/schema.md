@@ -80,3 +80,25 @@ model so vector search behaves exactly as it does in the live app.
 - `su_id` (SemanticUnit): `<slug>_su_<n>`.
 - `canonical_id` (CanonicalConcept): `cluster_<n>`.
 - `anchor` / `first_anchor_id`: the navigation token used in deep links `…/p/<anchor>`.
+
+## Tool coverage — every layer is reachable
+
+| Graph element | Tool(s) |
+| --- | --- |
+| `Text` | `list_texts`, `get_corridors_for_text` |
+| `TextUnit` (verses) | `lookup_passage` |
+| `SemanticUnit` + `embedding` | `search_corpus`, `get_concept_sources` |
+| `CONNECTS_TO {comments_on}` | `get_commentaries_on` |
+| `Entity` + `MENTIONED_IN` | `get_entities_in_passage`, `search_entities` |
+| Entity↔Entity (`DEVELOPS`/`CONTRADICTS`/`EXEMPLIFIES`/`APPLIES_TO`/`CONTEXTUALIZES`/`EQUIVALENT`) | `get_related_entities` |
+| `Sugya` + `Move` (`LOCATED_IN`/`PART_OF`) | `get_talmudic_structure` |
+| `CanonicalConcept` | `search_concepts`, `get_concept` |
+| `CANONICAL_REL` (typed) | `get_concept_neighborhood` |
+| `PREREQUISITE` DAG | `get_prerequisites` |
+| `TEMPORAL_PRECEDES` | `get_temporal_neighbors` |
+| `INSTANCE_OF` + `COVERS` | `get_concept_sources` |
+| `Corridor`/`CorridorModule` (`HAS_CORRIDOR`/`HAS_MODULE`/`LEADS_TO`) | `get_corridors_for_text`, `get_corridor` |
+| `Constellation`/`Galaxy` (`IN_CONSTELLATION`/`IN_GALAXY`/`ENTRY_POINT`/`BRIDGES`) | `list_galaxies`, `browse_constellation` |
+
+If we map a new layer in the graph, it gets a tool here — the gateway is meant to expose the
+*whole* graph, not a curated slice.

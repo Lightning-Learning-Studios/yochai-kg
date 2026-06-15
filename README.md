@@ -35,11 +35,16 @@ Connect any MCP client (Claude Desktop, Claude API, Cursor, your own agent) to t
 
 Then ask your agent: *"Use yochai-kg to find three passages on teshuvah, the concept that develops the idea, and what I'd need to learn first."* Full guide → [docs/quickstart-mcp.md](./docs/quickstart-mcp.md). Run it yourself → same doc, Option B.
 
-## The tools
+## The tools (18 — every layer of the graph is reachable)
 
-`search_corpus` · `lookup_passage` · `search_concepts` · `get_concept` · `get_concept_neighborhood` · `get_prerequisites` · `list_galaxies` · `browse_constellation` · `get_commentaries_on` · `get_entities_in_passage` · `list_texts`
+**Corpus & passages:** `search_corpus` · `lookup_passage` · `get_commentaries_on` · `list_texts`
+**Concepts:** `search_concepts` · `get_concept` · `get_concept_neighborhood` · `get_concept_sources` · `get_prerequisites` · `get_temporal_neighbors`
+**Map:** `list_galaxies` · `browse_constellation`
+**Talmudic structure:** `get_talmudic_structure` (sugya + dialectical moves)
+**Learning paths:** `get_corridors_for_text` · `get_corridor`
+**Extraction layer:** `get_entities_in_passage` · `search_entities` · `get_related_entities`
 
-Each returns structured, bilingual (Hebrew + English) results with citations and deep links back to the source. See [docs/schema.md](./docs/schema.md) for what the graph contains.
+Every node label (Text, TextUnit, SemanticUnit, Entity, Sugya, Move, CanonicalConcept, Constellation, Galaxy, Corridor, CorridorModule) and every relationship type is reachable through these tools. Each returns structured, bilingual (Hebrew + English) results with citations and deep links back to the source. See [docs/schema.md](./docs/schema.md) for the full inventory.
 
 ## Getting an API key
 

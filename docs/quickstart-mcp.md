@@ -58,13 +58,19 @@ MCP_TRANSPORT=http PORT=8000 yochai-kg-gateway
 | --- | --- |
 | `search_corpus(query, text_filter?, limit?)` | Find passages by meaning |
 | `lookup_passage(reference)` | Get an exact passage (`bereishit_1_1`) |
+| `get_commentaries_on(reference)` | Pull commentary on a base text |
+| `list_texts(genre?)` | Browse the corpus |
 | `search_concepts(query)` / `get_concept(id)` | Explore the ~17.6k canonical concepts |
 | `get_concept_neighborhood(id, rel_types?)` | See how a concept relates to others |
-| `get_prerequisites(id)` | Build a learning order |
+| `get_concept_sources(id)` | Read the passages behind a concept |
+| `get_prerequisites(id)` | Build a learning order (prerequisite DAG) |
+| `get_temporal_neighbors(id)` | Place a concept chronologically |
 | `list_galaxies()` / `browse_constellation(id?)` | Navigate the thematic map |
-| `get_commentaries_on(reference)` | Pull commentary on a base text |
+| `get_talmudic_structure(reference)` | Sugya + dialectical moves of a Talmud passage |
+| `get_corridors_for_text(slug)` / `get_corridor(id)` | Walk a built learning sequence |
 | `get_entities_in_passage(su_id)` | See who/what a passage mentions |
-| `list_texts(genre?)` | Browse the corpus |
+| `search_entities(query, entity_type?)` | Search the 2.5M-node extraction layer |
+| `get_related_entities(entity_id, rel_types?)` | Entity-to-entity relations within texts |
 
 ## A first conversation
 

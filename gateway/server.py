@@ -109,6 +109,55 @@ async def list_texts(genre: str | None = None, limit: int | None = None):
     return await tools.list_texts(genre, limit)
 
 
+@mcp.tool()
+async def search_entities(query: str, entity_type: str | None = None, limit: int | None = None):
+    """Search the extraction layer (people, places, themes, concepts, teachings,
+    tensions, questions, …) by name/description. Filter by entity_type. This layer is
+    machine-extracted — rich evidence, not adjudicated truth."""
+    return await tools.search_entities(query, entity_type, limit)
+
+
+@mcp.tool()
+async def get_related_entities(entity_id: str, rel_types: list[str] | None = None, limit: int | None = None):
+    """Entity-to-entity relations found within texts: DEVELOPS, CONTRADICTS,
+    EXEMPLIFIES, APPLIES_TO, CONTEXTUALIZES, EQUIVALENT."""
+    return await tools.get_related_entities(entity_id, rel_types, limit)
+
+
+@mcp.tool()
+async def get_talmudic_structure(reference: str):
+    """For a Talmud passage: its sugya (driving question, conclusion/maskana) and the
+    ordered dialectical moves (speaker, stratum). Pass a sugya_id or TextUnit
+    canonical_id (e.g. 'bavli-arakhin_3_1')."""
+    return await tools.get_talmudic_structure(reference)
+
+
+@mcp.tool()
+async def get_corridors_for_text(text_slug: str, limit: int | None = None):
+    """List the learning corridors built over a text."""
+    return await tools.get_corridors_for_text(text_slug, limit)
+
+
+@mcp.tool()
+async def get_corridor(corridor_id: str, limit: int | None = None):
+    """A corridor's ordered learning modules (concept, domain, anchor quote)."""
+    return await tools.get_corridor(corridor_id, limit)
+
+
+@mcp.tool()
+async def get_concept_sources(canonical_id: str, limit: int | None = None):
+    """The corpus passages that ground a canonical concept — read the texts behind
+    the abstraction."""
+    return await tools.get_concept_sources(canonical_id, limit)
+
+
+@mcp.tool()
+async def get_temporal_neighbors(canonical_id: str, limit: int | None = None):
+    """Chronological context: concepts that historically precede/follow this one
+    (distinct from the pedagogical prerequisite order)."""
+    return await tools.get_temporal_neighbors(canonical_id, limit)
+
+
 # --- HTTP app with free-API-key gate ----------------------------------------
 def build_http_app():
     """Return the Streamable-HTTP ASGI app with an optional API-key gate."""
