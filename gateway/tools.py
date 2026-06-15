@@ -24,11 +24,31 @@ def _deep_link(anchor: str | None) -> str | None:
     return f"{config.APP_URL}/p/{anchor}"
 
 
+def _reference(row: dict[str, Any]) -> str | None:
+    """Build a human citation. SemanticUnits have empty canonical_ref/section_label
+    across the corpus, so derive one: Talmud → 'Berakhot, Daf 2a'; verse-structured
+    texts → 'Bereishit 1:1' (from a clean <slug>_<ch>_<v> anchor); else the title.
+    The anchor/deep_link always carries the precise, authoritative location."""
+    title = row.get("text_title") or row.get("text_slug")
+    if row.get("daf_label"):
+        return f"{title}, {row['daf_label']}"
+    if row.get("canonical_ref"):
+        return row["canonical_ref"]
+    if row.get("section_label"):
+        return row["section_label"]
+    slug = row.get("text_slug") or ""
+    anchor = row.get("first_anchor_id") or ""
+    m = re.match(rf"^{re.escape(slug)}_(\d+)_(\d+)$", anchor)
+    if m:
+        return f"{title} {m.group(1)}:{m.group(2)}"
+    return title
+
+
 def _passage(row: dict[str, Any]) -> dict[str, Any]:
     """Shape a SemanticUnit row into a public passage object."""
     return {
         "su_id": row.get("su_id"),
-        "reference": row.get("canonical_ref") or row.get("section_label"),
+        "reference": _reference(row),
         "text_slug": row.get("text_slug"),
         "text_title": row.get("text_title"),
         "author": row.get("text_author"),
@@ -45,6 +65,7 @@ def _passage(row: dict[str, Any]) -> dict[str, Any]:
 _SU_FIELDS = """
        su.su_id AS su_id, su.english_text AS english_text, su.hebrew_text AS hebrew_text,
        su.canonical_ref AS canonical_ref, su.section_label AS section_label,
+       su.daf_label AS daf_label,
        su.first_anchor_id AS first_anchor_id, su.last_anchor_id AS last_anchor_id,
        su.text_slug AS text_slug, su.genre AS genre, su.era AS era,
        t.title AS text_title, t.author AS text_author

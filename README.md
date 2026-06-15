@@ -61,17 +61,26 @@ The key always travels in the `x-api-key` header. That's the whole setup.
 
 Paste this to your agent and watch it work:
 
-> **Use the yochai-kg tools to find three passages on *teshuvah* (repentance), then show me one canonical concept that develops the idea and what I'd want to understand first. Cite each passage with its reference and link.**
+> **Study *teshuvah* (repentance) with me using the yochai-kg graph: surface a few foundational sources across eras, show me how the idea connects to and develops from neighboring concepts, and what I'd learn first. Cite everything with references and links.**
 
-A capable agent will call `search_corpus("teshuvah repentance")`, `search_concepts("teshuvah")`, `get_concept_neighborhood(...)`, and `get_prerequisites(...)`, then hand you cited, bilingual sources with a suggested learning order. You're studying.
+Notice what you *didn't* do: tell it which tools to call. You gave it a **goal and a graph** — it chooses the path, reaching for a curated tool when one fits or writing its own read-only Cypher with `run_cypher` when it doesn't, and hands you cited, bilingual sources. That's the whole idea.
 
 > Full walkthrough → [docs/quickstart-mcp.md](./docs/quickstart-mcp.md). Want a dozen worked conversations across every kind of user? → [docs/use-cases.md](./docs/use-cases.md).
 
 ---
 
+## Point your agent at the graph — then get out of the way
+
+The most powerful way to use this isn't to script tool calls. Give your agent two things and a goal:
+
+1. **The connection** (the MCP config above), and
+2. **The map** — drop [`docs/schema.md`](./docs/schema.md) into its context. That's the *complete*, verified picture of the graph: every node label, every relationship type, every property, with counts.
+
+Then ask for what you want. A capable agent reads the map and decides how to traverse — reaching for a curated tool when one fits, or writing its own read-only Cypher with `run_cypher` when it doesn't — and grounds every answer in real, cited sources. **The tools are conveniences; the graph is the product.** You're never limited to the paths we anticipated.
+
 ## Choose your path
 
-The same graph serves a curious child and a seasoned scholar. Here's where to start, with prompts you can literally type to your agent.
+The same graph serves a curious child and a seasoned scholar. The prompts below are **goals, not scripts** — type them to your agent and let *it* choose the path. (The `→` notes show *one* way it might traverse; yours may find a better one, or write its own Cypher.)
 
 ### For the curious (including kids, with a grown-up or agent helping)
 
