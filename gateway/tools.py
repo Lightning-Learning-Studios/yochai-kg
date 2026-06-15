@@ -295,16 +295,26 @@ async def search_entities(query: str, entity_type: str | None = None, limit: int
     entity_type (see ENTITY_TYPES). This layer is LLM-extracted — rich evidence,
     not adjudicated truth."""
     n = config.clamp_limit(limit)
-    safe = " ".join(w for w in __import__("re").findall(r"[\w֐-׿]+", query) if len(w) > 1)
-    cypher = """
-    CALL db.index.fulltext.queryNodes('entity_name_fulltext', $q) YIELD node AS e, score
-    WHERE $etype IS NULL OR e.entity_type = $etype
-    RETURN e.entity_id AS entity_id, e.name AS name, e.name_hebrew AS name_hebrew,
-           e.entity_type AS entity_type, e.description AS description,
-           e.domain AS domain, e.text_slug AS text_slug, score
-    ORDER BY score DESC LIMIT $n
-    """
-    rows = await read(cypher, {"q": safe or query, "etype": entity_type, "n": n})
+    words = [w for w in re.findall(r"[\w֐-׿]+", query) if len(w) > 1]
+
+    async def _run(q: str):
+        cypher = """
+        CALL db.index.fulltext.queryNodes('entity_name_fulltext', $q) YIELD node AS e, score
+        WHERE $etype IS NULL OR e.entity_type = $etype
+        RETURN e.entity_id AS entity_id, e.name AS name, e.name_hebrew AS name_hebrew,
+               e.entity_type AS entity_type, e.description AS description,
+               e.domain AS domain, e.text_slug AS text_slug, score
+        ORDER BY score DESC LIMIT $n
+        """
+        return await read(cypher, {"q": q, "etype": entity_type, "n": n})
+
+    # Require ALL terms first (precise name match, e.g. "Rabbi Akiva" → Rabbi Akiva,
+    # not any "Rabbi …"); fall back to OR if that's too strict to return anything.
+    rows = []
+    if len(words) > 1:
+        rows = await _run(" AND ".join(words))
+    if not rows:
+        rows = await _run(" ".join(words) or query)
     return {"query": query, "entity_type": entity_type, "count": len(rows), "entities": rows}
 
 
