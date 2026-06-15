@@ -1,0 +1,36 @@
+# Yochai corpus submission — one text per file.
+# Copy this to ../<your-text-slug>.yaml and fill it in.
+# See ../SUBMISSION_SCHEMA.md for field docs and the allowed section_id / genre values.
+# Validate with: python ../validate_submission.py ../<your-text-slug>.yaml
+
+text_slug: ""            # lowercase-hyphenated-ascii, unique vs canonical_corpus.csv
+english_title: ""        # e.g. "Ketzot HaChoshen"
+original_title: ""       # Hebrew title, e.g. "קצות החושן"
+
+section_id: ""           # one of the 16 valid section_ids (see SUBMISSION_SCHEMA.md)
+genre: ""                # one of the 17 valid genres (see SUBMISSION_SCHEMA.md)
+
+era_key: ""              # e.g. "acharonim"
+era_display: ""          # e.g. "Acharonim"
+
+author: ""               # optional
+group_id: ""             # optional — match an existing library group when possible
+group: ""                # optional — display name of the group
+spine_item: ""           # optional — e.g. "Siman", "Chapter", "Daf" (defaults to section)
+frontend_navigation: ""  # optional — e.g. "Siman > Se'if"
+dependent_on: ""         # optional — base text slug if this is a commentary
+sort_order:              # optional integer
+notes: ""                # optional — anything maintainers should know
+
+description: ""          # required — 1-2 sentences: what it is and why it matters
+
+source:                  # required — where the text comes from
+  hebrew:
+    type: ""             # sefaria | url | upload
+    ref: ""              # Sefaria URL or source URL
+    license: ""          # e.g. "public-domain", "CC-BY-SA", "Sefaria CC"
+  english:
+    type: ""             # sefaria | url | upload | none
+    ref: ""
+    license: ""
+  provenance: ""         # one line on edition + rights status

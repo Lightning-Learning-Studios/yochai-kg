@@ -1,0 +1,154 @@
+"""Yochai Open KG — MCP gateway server.
+
+Exposes the read-only knowledge-graph tools over MCP. Run locally over stdio
+(for Claude Desktop / agent dev) or hosted over Streamable HTTP (the public
+endpoint). Free API keys are enforced on the HTTP transport when
+GATEWAY_REQUIRE_API_KEY=true.
+"""
+from __future__ import annotations
+
+import logging
+import os
+
+from mcp.server.fastmcp import FastMCP
+
+from . import config, tools
+
+logging.basicConfig(level=logging.INFO)
+
+mcp = FastMCP(
+    "yochai-kg",
+    instructions=(
+        "Read-only access to the Yochai knowledge graph of the Jewish textual tradition "
+        "(1,000+ works: Tanakh, Talmud, Midrash, Halakha, Kabbalah, Hasidut, philosophy, "
+        "responsa and their commentaries). Use search_corpus for meaning-based passage "
+        "retrieval, lookup_passage for an exact reference, the concept tools to navigate the "
+        "~17,600 canonical concepts and their relationships, and the galaxy/constellation tools "
+        "for the thematic map. Every passage is derived study material with a deep link back to "
+        "the source — always verify against the primary text; this is not a rabbinic authority."
+    ),
+)
+
+
+# --- tool registrations (thin wrappers so descriptions live with the schema) --
+@mcp.tool()
+async def search_corpus(query: str, text_filter: str | None = None, limit: int | None = None):
+    """Semantic search over the corpus. Returns bilingual passages (Hebrew+English)
+    with a citation reference and a deep link. Optionally scope to one text by slug
+    (text_filter, e.g. 'moreh-nevuchim')."""
+    return await tools.search_corpus(query, text_filter, limit)
+
+
+@mcp.tool()
+async def lookup_passage(reference: str):
+    """Fetch an exact passage by slug-style reference, e.g. 'bereishit_1_1' or
+    'bavli-berakhot_5_1'."""
+    return await tools.lookup_passage(reference)
+
+
+@mcp.tool()
+async def search_concepts(query: str, limit: int | None = None):
+    """Find canonical concepts by meaning. Returns concept name, definition,
+    difficulty, and whether it's a keystone idea."""
+    return await tools.search_concepts(query, limit)
+
+
+@mcp.tool()
+async def get_concept(canonical_id: str):
+    """Full detail for one canonical concept (definition, guiding question,
+    gateway insight, difficulty, traditions, era span)."""
+    return await tools.get_concept(canonical_id)
+
+
+@mcp.tool()
+async def get_concept_neighborhood(canonical_id: str, rel_types: list[str] | None = None, limit: int | None = None):
+    """Concepts related to this one via typed edges: DEVELOPS, CONTRADICTS,
+    RESONATES, EXEMPLIFIES, APPLIES_TO, ADDRESSES, SHARES_METHOD, CONTEXTUALIZES,
+    COMMENTARY. Filter with rel_types."""
+    return await tools.get_concept_neighborhood(canonical_id, rel_types, limit)
+
+
+@mcp.tool()
+async def get_prerequisites(canonical_id: str, limit: int | None = None):
+    """Learning order: concepts to study BEFORE this one, and concepts it unlocks
+    (walks the prerequisite DAG)."""
+    return await tools.get_prerequisites(canonical_id, limit)
+
+
+@mcp.tool()
+async def list_galaxies():
+    """The 11 top-level thematic galaxies — the broadest map of the tradition."""
+    return await tools.list_galaxies()
+
+
+@mcp.tool()
+async def browse_constellation(constellation_id: str | None = None, galaxy_id: str | None = None, limit: int | None = None):
+    """With a constellation_id: that constellation plus its member concepts.
+    Otherwise lists constellations (optionally within a galaxy_id)."""
+    return await tools.browse_constellation(constellation_id, galaxy_id, limit)
+
+
+@mcp.tool()
+async def get_commentaries_on(reference: str, limit: int | None = None):
+    """Commentary passages on a base text. Pass a base slug ('bavli-berakhot') or
+    canonical id ('bavli-berakhot_5_1')."""
+    return await tools.get_commentaries_on(reference, limit)
+
+
+@mcp.tool()
+async def get_entities_in_passage(su_id: str, limit: int | None = None):
+    """People, places, themes, and concepts mentioned in a semantic unit
+    (su_id comes from search_corpus results)."""
+    return await tools.get_entities_in_passage(su_id, limit)
+
+
+@mcp.tool()
+async def list_texts(genre: str | None = None, limit: int | None = None):
+    """List corpus texts, optionally filtered by genre (e.g. 'commentary',
+    'halakhic_code', 'kabbalah')."""
+    return await tools.list_texts(genre, limit)
+
+
+# --- HTTP app with free-API-key gate ----------------------------------------
+def build_http_app():
+    """Return the Streamable-HTTP ASGI app with an optional API-key gate."""
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.responses import JSONResponse
+
+    app = mcp.streamable_http_app()
+
+    class ApiKeyMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            if config.REQUIRE_API_KEY and request.url.path.rstrip("/").endswith("/mcp"):
+                provided = request.headers.get("x-api-key") or ""
+                auth = request.headers.get("authorization", "")
+                if auth.lower().startswith("bearer "):
+                    provided = provided or auth[7:].strip()
+                if provided not in config.API_KEYS:
+                    return JSONResponse({"error": "invalid or missing API key"}, status_code=401)
+            return await call_next(request)
+
+    app.add_middleware(ApiKeyMiddleware)
+    return app
+
+
+def main():
+    transport = os.getenv("MCP_TRANSPORT", "stdio")
+    if transport == "stdio":
+        mcp.run()  # stdio — for local dev / Claude Desktop
+    else:
+        import uvicorn
+
+        uvicorn.run(build_http_app(), host=config.HOST, port=config.PORT)
+
+
+app = None  # lazily built by ASGI servers that import gateway.server:get_app
+def get_app():
+    global app
+    if app is None:
+        app = build_http_app()
+    return app
+
+
+if __name__ == "__main__":
+    main()
