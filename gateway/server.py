@@ -160,11 +160,26 @@ async def get_temporal_neighbors(canonical_id: str, limit: int | None = None):
 
 # --- HTTP app with free-API-key gate ----------------------------------------
 def build_http_app():
-    """Return the Streamable-HTTP ASGI app with an optional API-key gate."""
+    """Return the Streamable-HTTP ASGI app: the MCP endpoint at /mcp, the API-key
+    request form + Slack webhook, and an API-key gate validating against the static
+    allowlist and the Supabase key store."""
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.responses import JSONResponse
 
-    app = mcp.streamable_http_app()
+    from apikeys import app as apikeys_app
+    from apikeys import store as key_store
+
+    http_app = mcp.streamable_http_app()
+    # Add the key-request + Slack-interaction routes alongside /mcp (distinct paths,
+    # so the MCP handler is not shadowed; keeps the MCP app's own lifespan intact).
+    http_app.router.routes.extend(apikeys_app.routes)
+
+    async def _key_ok(provided: str) -> bool:
+        if provided and provided in config.API_KEYS:
+            return True
+        if key_store.configured():
+            return await key_store.validate_key(provided)
+        return False
 
     class ApiKeyMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request, call_next):
@@ -173,12 +188,12 @@ def build_http_app():
                 auth = request.headers.get("authorization", "")
                 if auth.lower().startswith("bearer "):
                     provided = provided or auth[7:].strip()
-                if provided not in config.API_KEYS:
+                if not await _key_ok(provided):
                     return JSONResponse({"error": "invalid or missing API key"}, status_code=401)
             return await call_next(request)
 
-    app.add_middleware(ApiKeyMiddleware)
-    return app
+    http_app.add_middleware(ApiKeyMiddleware)
+    return http_app
 
 
 def main():
