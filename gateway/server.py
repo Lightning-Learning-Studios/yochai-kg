@@ -166,22 +166,19 @@ async def get_temporal_neighbors(canonical_id: str, limit: int | None = None):
 
 # --- HTTP app with free-API-key gate ----------------------------------------
 def build_http_app():
-    """Return the Streamable-HTTP ASGI app: the MCP endpoint at /mcp, the API-key
-    request form + Slack webhook, and an API-key gate validating against the static
-    allowlist and the Supabase key store."""
-    import os
+    """Return the Streamable-HTTP ASGI app: the MCP endpoint at /mcp plus an API-key
+    gate that validates against the static allowlist and the Supabase key store.
 
+    Key *issuance* (request form, Slack approval, email) does NOT live here — it's a
+    readiverse-haven GCP function (infrastructure/gcp-functions/shared/yochai-kg-access).
+    The gateway only validates active keys against the shared yochai_kg_api_keys table.
+    """
     from starlette.middleware.base import BaseHTTPMiddleware
-    from starlette.middleware.cors import CORSMiddleware
     from starlette.responses import JSONResponse
 
-    from apikeys import app as apikeys_app
     from apikeys import store as key_store
 
     http_app = mcp.streamable_http_app()
-    # Add the key-request + Slack-interaction routes alongside /mcp (distinct paths,
-    # so the MCP handler is not shadowed; keeps the MCP app's own lifespan intact).
-    http_app.router.routes.extend(apikeys_app.routes)
 
     async def _key_ok(provided: str) -> bool:
         if provided and provided in config.API_KEYS:
@@ -202,15 +199,6 @@ def build_http_app():
             return await call_next(request)
 
     http_app.add_middleware(ApiKeyMiddleware)
-    # Allow the Yochai app (and configured origins) to POST the request form cross-origin.
-    origins = [o.strip() for o in os.getenv(
-        "GATEWAY_CORS_ORIGINS",
-        "https://yochai.lightningstudios.ai,http://localhost:8080,http://localhost:5173",
-    ).split(",") if o.strip()]
-    http_app.add_middleware(
-        CORSMiddleware, allow_origins=origins,
-        allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"],
-    )
     return http_app
 
 

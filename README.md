@@ -37,7 +37,7 @@ You need two things: a (free) API key, and an MCP client. The example below uses
 
 The gateway is free to use. We ask for a key so we can keep it healthy for everyone (rate limits, abuse protection — no cost to you). Requests are reviewed by the team and the key arrives by email.
 
-**→ [Request a free API key](https://yochai-kg-gateway-production.up.railway.app/request-key)**
+**→ [Request a free API key](https://yochai.lightningstudios.ai/open-kg)**
 
 ### 2. Paste this into your Claude Desktop config
 
