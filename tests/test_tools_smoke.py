@@ -49,6 +49,7 @@ def test_all_tools_registered():
         "browse_constellation", "get_commentaries_on", "get_entities_in_passage",
         "list_texts", "search_entities", "get_related_entities",
         "get_talmudic_structure", "get_corridors_for_text", "get_corridor",
-        "get_concept_sources", "get_temporal_neighbors",
+        "get_concept_sources", "get_temporal_neighbors", "get_connections",
+        "run_cypher",
     }
     assert expected <= names, f"missing tools: {expected - names}"

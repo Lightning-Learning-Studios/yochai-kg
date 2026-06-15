@@ -164,6 +164,23 @@ async def get_temporal_neighbors(canonical_id: str, limit: int | None = None):
     return await tools.get_temporal_neighbors(canonical_id, limit)
 
 
+@mcp.tool()
+async def get_connections(reference: str, kinds: list[str] | None = None, limit: int | None = None):
+    """The Sefaria/citation connection graph for a passage (CONNECTS_TO): commentary,
+    quoting-commentary, midrash, targum, cross-Talmud/Tanakh links, mesorat hashas,
+    ein mishpat, and more. Pass a canonical id or text slug; filter by `kinds`."""
+    return await tools.get_connections(reference, kinds, limit)
+
+
+@mcp.tool()
+async def run_cypher(query: str, params: dict | None = None, limit: int | None = None):
+    """Run your OWN read-only Cypher and traverse the graph freely — the raw doorway.
+    Writes/admin are blocked and a LIMIT is enforced. See the schema in docs/schema.md
+    for every label, relationship type, and property. Use search_corpus for semantic
+    search (vector); use this for structural graph traversal."""
+    return await tools.run_cypher(query, params, limit)
+
+
 # --- HTTP app with free-API-key gate ----------------------------------------
 def build_http_app():
     """Return the Streamable-HTTP ASGI app: the MCP endpoint at /mcp plus an API-key

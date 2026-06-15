@@ -59,6 +59,8 @@ MCP_TRANSPORT=http PORT=8000 yochai-kg-gateway
 | `search_corpus(query, text_filter?, limit?)` | Find passages by meaning |
 | `lookup_passage(reference)` | Get an exact passage (`bereishit_1_1`) |
 | `get_commentaries_on(reference)` | Pull commentary on a base text |
+| `get_connections(reference, kinds?)` | The full Sefaria/citation connection graph for a passage |
+| `run_cypher(query, params?)` | Run your **own** read-only Cypher — traverse the graph freely |
 | `list_texts(genre?)` | Browse the corpus |
 | `search_concepts(query)` / `get_concept(id)` | Explore the ~17.6k canonical concepts |
 | `get_concept_neighborhood(id, rel_types?)` | See how a concept relates to others |

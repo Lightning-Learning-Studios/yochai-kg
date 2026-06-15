@@ -19,7 +19,12 @@ Text ──BELONGS_TO── TextUnit ──IN_UNIT── SemanticUnit ──(vec
 ```
 
 - **Corpus layer** — the texts themselves, verse by verse (`TextUnit`), grouped into
-  retrieval-sized `SemanticUnit`s. This is what `search_corpus` searches.
+  **`SemanticUnit`s**. This grouping is deliberate and is *the* reason retrieval works well:
+  passages are segmented into **semantically coherent units of meaning** — not raw verses, and
+  not arbitrary fixed-size chapters or windows. Each `SemanticUnit` is a self-contained idea
+  (a complete teaching, a sugya step, a coherent passage), embedded as a whole, so a search
+  returns a *meaningful* passage rather than a fragment or a wall of unrelated text. This is what
+  `search_corpus` searches.
 - **Extraction layer** — `Entity` nodes (people, places, themes, concepts, teachings,
   tensions, …) extracted from each passage. Surfaced by `get_entities_in_passage`.
 - **Concept layer** — `CanonicalConcept`s: ~17,600 deduplicated ideas synthesized across
@@ -47,23 +52,64 @@ Text ──BELONGS_TO── TextUnit ──IN_UNIT── SemanticUnit ──(vec
 useful (the live app uses it), but per-passage and not curated to the same bar as
 `CanonicalConcept`. Treat it as evidence, not adjudicated truth.
 
-## Relationship types
+## Relationship types — the COMPLETE list
 
-| Type | From → To | Meaning |
-| --- | --- | --- |
-| `BELONGS_TO` | TextUnit/SemanticUnit → Text | Membership |
-| `IN_UNIT` | TextUnit → SemanticUnit | Verse → retrieval unit |
-| `CONNECTS_TO {kind:'comments_on', base_text_slug}` | TextUnit → TextUnit | Commentary link (236K) |
-| `MENTIONED_IN {importance}` | Entity → SemanticUnit | Entity appears in passage |
-| `EXTRACTED_FROM` | Entity → TextUnit | Provenance of an extraction |
-| `COVERS` / `COVERS_ENTITY` | CorridorModule → SemanticUnit / Entity | Module grounding |
-| `INSTANCE_OF {role}` | CorridorModule → CanonicalConcept | Module realizes a concept |
-| `CANONICAL_REL {relationship_type, confidence, direction}` | CanonicalConcept ↔ CanonicalConcept | Typed concept relations (523K). `relationship_type` ∈ COMMENTARY, RESONATES, DEVELOPS, EXEMPLIFIES, ADDRESSES, APPLIES_TO, SHARES_METHOD, CONTEXTUALIZES, CONTRADICTS |
-| `PREREQUISITE {confidence}` | CanonicalConcept → CanonicalConcept | Learning order (foundational → advanced), 26K |
-| `TEMPORAL_PRECEDES` | CanonicalConcept → CanonicalConcept | Chronological order, 54K |
-| `IN_CONSTELLATION` | CanonicalConcept → Constellation | Thematic membership |
-| `IN_GALAXY` | Constellation → Galaxy | Map membership |
-| `ENTRY_POINT` | Constellation → CanonicalConcept | Suggested starting concept |
+These are **all 34 relationship types in the live graph**, enumerated directly from Neo4j
+(`CALL db.relationshipTypes()`) with counts, on 2026-06. If a relationship isn't in this table,
+it isn't in the graph. (`RELATED` exists with 0 rows — deterministic scaffolding, cleared after
+the concept DAG was built.)
+
+**Corpus structure**
+| Type | From → To | Count | Meaning |
+| --- | --- | --- | --- |
+| `BELONGS_TO` | TextUnit/SemanticUnit → Text | 1.36M | Membership |
+| `IN_UNIT` | TextUnit → SemanticUnit | 969K | Verse → semantic unit |
+
+**Connection / citation layer (the Sefaria + LLM citation graph)**
+| Type | From → To | Count | Meaning |
+| --- | --- | --- | --- |
+| `CONNECTS_TO {kind, base_text_slug}` | TextUnit → TextUnit | 439K | The reference graph. `kind` ∈ ~28 values: `comments_on` (236K), `Quoting Commentary` (78K), `commentary` (61K), `Midrash`, `Tanakh`, `Talmud`, `targum`, `Halakhah`, `Kabbalah`, `Musar`, `Chasidut`, `mesorat hashas`, `ein mishpat / ner mitsvah`, `Responsa`, `Mishnah`, `Tosefta`, `quotation`, `reference`, `dibur_hamatchil`, `Second Temple`, … |
+
+(Also mirrored in Supabase: `yochai_connections` (1.09M, LLM-extracted explicit prooftexts),
+`yochai_connections_new` (216K, Sefaria's official link graph), `yochai_connection_counts*`,
+`yochai_sefaria_ref_map`. The `citation` entity_type (52K) is the citation layer at entity level.)
+
+**Extraction layer**
+| Type | From → To | Count | Meaning |
+| --- | --- | --- | --- |
+| `MENTIONED_IN {importance}` | Entity → SemanticUnit | 3.46M | Entity appears in passage |
+| `EXTRACTED_FROM {importance}` | Entity → TextUnit | 4.85M | Extraction provenance |
+| `DEVELOPS` / `CONTRADICTS` / `EXEMPLIFIES` / `APPLIES_TO` / `CONTEXTUALIZES` / `EQUIVALENT` | Entity → Entity | 614K / 338K / 190K / 23K / 6K / 31K | Discovered entity-to-entity relations |
+| `LOCATED_IN` | Sugya → TextUnit | 18K | Talmudic sugya placement |
+| `PART_OF` | Move → Sugya | 131K | Dialectical move in a sugya |
+
+**Concept layer**
+| Type | From → To | Count | Meaning |
+| --- | --- | --- | --- |
+| `INSTANCE_OF {role}` | CorridorModule → CanonicalConcept | 785K | Module realizes a concept |
+| `CANONICAL_REL {relationship_type, confidence, direction}` | CanonicalConcept ↔ CanonicalConcept | 523K | `relationship_type` ∈ COMMENTARY, RESONATES, DEVELOPS, EXEMPLIFIES, ADDRESSES, APPLIES_TO, SHARES_METHOD, CONTEXTUALIZES, CONTRADICTS |
+| `PREREQUISITE {confidence}` | CanonicalConcept → CanonicalConcept | 26K | Learning order (foundational → advanced) |
+| `TEMPORAL_PRECEDES` | CanonicalConcept → CanonicalConcept | 54K | Chronological order |
+| `ENRICHMENT {confidence}` | CanonicalConcept → CanonicalConcept | 24K | Non-prerequisite enrichment links |
+
+**Cross-book reference graph (between corridor modules)**
+| Type | From → To | Count | Meaning |
+| --- | --- | --- | --- |
+| `COMMENTS_ON` / `REFERENCES` / `DERIVES_FROM` / `TRANSLATES` / `CODIFIES` / `DISCUSSES` | CorridorModule → CorridorModule | 570K / 136K / 23K / 9K / 3K / 2K | How works reference each other across the corpus |
+
+**Pedagogy & map**
+| Type | From → To | Count | Meaning |
+| --- | --- | --- | --- |
+| `HAS_CORRIDOR` / `HAS_MODULE` / `LEADS_TO` | Text→Corridor / Corridor→Module / Module→Module | 1K / 132K / 140K | Learning corridors + their ordering |
+| `COVERS` / `COVERS_ENTITY` | CorridorModule → SemanticUnit / Entity | 780K / 442K | Module grounding |
+| `IN_CONSTELLATION` | CanonicalConcept → Constellation | 18K | Thematic membership |
+| `IN_GALAXY` | Constellation → Galaxy | 269 | Map membership |
+| `ENTRY_POINT` | Constellation → CanonicalConcept | 2K | Suggested starting concept |
+| `BRIDGES` | Constellation → Constellation | 1.3K | Cross-constellation links |
+
+**Don't want to learn the schema? You don't have to** — the curated tools cover the common
+paths. **Want to traverse freely?** Use `run_cypher` to run your own read-only Cypher over
+exactly these labels and edges. That's the raw doorway; this page is your map.
 
 ## Embeddings & indexes
 
@@ -89,6 +135,8 @@ model so vector search behaves exactly as it does in the live app.
 | `TextUnit` (verses) | `lookup_passage` |
 | `SemanticUnit` + `embedding` | `search_corpus`, `get_concept_sources` |
 | `CONNECTS_TO {comments_on}` | `get_commentaries_on` |
+| `CONNECTS_TO` (all ~28 kinds — the Sefaria/citation graph) | `get_connections` |
+| Cross-book module refs (`COMMENTS_ON`/`REFERENCES`/`DERIVES_FROM`/`TRANSLATES`/`CODIFIES`/`DISCUSSES`) + anything else | `run_cypher` |
 | `Entity` + `MENTIONED_IN` | `get_entities_in_passage`, `search_entities` |
 | Entity↔Entity (`DEVELOPS`/`CONTRADICTS`/`EXEMPLIFIES`/`APPLIES_TO`/`CONTEXTUALIZES`/`EQUIVALENT`) | `get_related_entities` |
 | `Sugya` + `Move` (`LOCATED_IN`/`PART_OF`) | `get_talmudic_structure` |

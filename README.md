@@ -17,7 +17,7 @@ Built by [Lightning Learning Studios](https://lightningstudios.ai), the team beh
 ### What's inside the graph
 
 - **1,037 texts** — Tanakh, Talmud (Bavli & Yerushalmi), Midrash, Halakha, Kabbalah, Hasidut, Jewish philosophy, responsa, and their commentaries.
-- **373,000 searchable passages** — every one bilingual (Hebrew + English), retrievable by *meaning*, not just keyword.
+- **373,000 searchable passages** — every one bilingual (Hebrew + English), retrievable by *meaning*, not just keyword. Crucially, passages are **semantic units**: the corpus is segmented into self-contained units of *meaning* (a complete teaching, a sugya step, a coherent passage) — **not raw verses or arbitrary fixed chapters/windows** — and each is embedded as a whole, so search returns a meaningful passage instead of a fragment.
 - **2.57 million extracted entities** — the people, places, themes, teachings, claims, and tensions the texts mention (machine-extracted; evidence, not adjudicated truth).
 - **17,635 canonical concepts** — deduplicated ideas synthesized across the whole corpus, linked by typed relationships.
 - **A prerequisite learning DAG** — for any concept, what you'd want to understand first.
@@ -25,7 +25,7 @@ Built by [Lightning Learning Studios](https://lightningstudios.ai), the team beh
 - **Learning corridors** — built study sequences that walk you through a text concept by concept.
 - **Citations + deep links on everything** — every passage comes back with its reference and a link straight to the source.
 
-All of it is reachable through **18 read-only MCP tools**. You cannot edit the graph; neither can anyone else. The gateway is read-only by construction — it refuses any write and never exposes database credentials.
+All of it is reachable in two ways: **curated tools** for the common paths, and **`run_cypher`** — a raw, read-only Cypher doorway so your agent can **learn the graph and traverse it however it pleases**. The [schema](./docs/schema.md) documents every node label, relationship type, and property, so you're never limited to what we anticipated. You cannot edit the graph; neither can anyone else — the gateway is read-only by construction (writes refused, no DB credentials exposed).
 
 ---
 
@@ -142,7 +142,7 @@ Tell your agent *"load the source-sheet skill from yochai-kg and build me a shee
 
 ## The tools
 
-There are **18 read-only MCP tools**, covering every layer of the graph — corpus and passages, concepts, the thematic map, Talmudic structure, learning paths, and the extraction layer. Rather than re-list them all here, see the annotated table in **[docs/quickstart-mcp.md](./docs/quickstart-mcp.md)** (and the full coverage map in [docs/schema.md](./docs/schema.md)). Every tool returns structured, bilingual results with citations and deep links back to the source.
+There are **20 read-only MCP tools** covering every layer — corpus and passages, the Sefaria/citation connection graph (`get_connections`), concepts, the thematic map, Talmudic structure, learning paths, and the extraction layer — **plus `run_cypher`**, which lets your agent run its own read-only Cypher and traverse the graph freely against the documented [schema](./docs/schema.md). So you can either use the curated tools or drive the raw graph yourself. See the annotated table in **[docs/quickstart-mcp.md](./docs/quickstart-mcp.md)** and the full coverage map in [docs/schema.md](./docs/schema.md). Every tool returns structured, bilingual results with citations and deep links back to the source.
 
 ## Run your own copy
 

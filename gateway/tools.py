@@ -6,11 +6,16 @@ schema (node labels, edge types, properties) is documented in docs/schema.md.
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from . import config
 from .embeddings import embed_query
 from .neo4j_client import read, read_with_vector
+
+# run_cypher only permits these read procedures (the vector/fulltext indexes).
+_ALLOWED_CALL_PROCS = {"db.index.vector.querynodes", "db.index.fulltext.querynodes"}
+_CALL_PROC_RE = re.compile(r"\bcall\s+([a-z0-9_.]+)", re.IGNORECASE)
 
 
 def _deep_link(anchor: str | None) -> str | None:
@@ -369,3 +374,51 @@ async def get_temporal_neighbors(canonical_id: str, limit: int | None = None) ->
         "MATCH (c:CanonicalConcept {canonical_id:$id})-[:TEMPORAL_PRECEDES]->(b:CanonicalConcept) "
         "RETURN b.canonical_id AS canonical_id, b.name AS name, b.era_span AS era_span LIMIT $n", {"id": canonical_id, "n": n})
     return {"canonical_id": canonical_id, "earlier": precedes, "later": follows}
+
+
+async def get_connections(reference: str, kinds: list[str] | None = None, limit: int | None = None) -> dict[str, Any]:
+    """The Sefaria/citation connection graph for a passage. CONNECTS_TO links a
+    TextUnit to related TextUnits with a `kind`: comments_on, 'Quoting Commentary',
+    Midrash, Tanakh, Talmud, targum, Halakhah, Kabbalah, Musar, Chasidut, Responsa,
+    'mesorat hashas', 'ein mishpat', quotation, reference, … Pass a canonical id
+    ('bavli-berakhot_5_1') or a text slug; optionally filter by kinds."""
+    n = config.clamp_limit(limit)
+    ref = reference.strip().lower()
+    cypher = """
+    MATCH (a:TextUnit)-[r:CONNECTS_TO]-(b:TextUnit)
+    WHERE toLower(a.canonical_id) = $ref OR toLower(a.text_slug) = $ref
+    WITH a, r, b, coalesce(r.kind, r.link_type, 'related') AS kind
+    WHERE $kinds IS NULL OR kind IN $kinds
+    MATCH (b)-[:BELONGS_TO]->(t:Text)
+    RETURN kind, b.canonical_id AS target_id, b.text_slug AS target_slug,
+           t.title AS target_title,
+           CASE WHEN startNode(r) = a THEN 'outgoing' ELSE 'incoming' END AS direction
+    LIMIT $n
+    """
+    rows = await read(cypher, {"ref": ref, "kinds": kinds, "n": n})
+    for row in rows:
+        row["deep_link"] = _deep_link(row.get("target_id"))
+    return {"reference": reference, "count": len(rows), "connections": rows}
+
+
+async def run_cypher(query: str, params: dict[str, Any] | None = None, limit: int | None = None) -> dict[str, Any]:
+    """Run your OWN read-only Cypher and traverse the graph however you like — this
+    is the raw doorway. Writes/admin are rejected; only db.index.vector/fulltext
+    CALLs are allowed; a LIMIT is enforced. See docs/schema.md for every node label,
+    relationship type, and property. (For semantic search use search_corpus — you
+    can't easily pass a 1024-d vector here.)"""
+    n = config.clamp_limit(limit)
+    q = query.strip().rstrip(";")
+    for m in _CALL_PROC_RE.finditer(q):
+        if m.group(1).lower() not in _ALLOWED_CALL_PROCS:
+            return {"error": f"CALL {m.group(1)} is not permitted. Only read queries "
+                             "(plus db.index.vector / db.index.fulltext) are allowed."}
+    if "limit" not in q.lower():
+        q = f"{q}\nLIMIT {n}"
+    try:
+        rows = await read(q, params or {})  # read() rejects write/admin Cypher
+    except ValueError as e:
+        return {"error": str(e)}
+    except Exception as e:  # surface Cypher syntax/runtime errors to the agent
+        return {"error": f"query failed: {e}"}
+    return {"row_count": len(rows[:n]), "rows": rows[:n], "note": "read-only result, capped"}
