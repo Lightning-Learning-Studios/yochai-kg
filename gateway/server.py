@@ -169,7 +169,10 @@ def build_http_app():
     """Return the Streamable-HTTP ASGI app: the MCP endpoint at /mcp, the API-key
     request form + Slack webhook, and an API-key gate validating against the static
     allowlist and the Supabase key store."""
+    import os
+
     from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.middleware.cors import CORSMiddleware
     from starlette.responses import JSONResponse
 
     from apikeys import app as apikeys_app
@@ -199,6 +202,15 @@ def build_http_app():
             return await call_next(request)
 
     http_app.add_middleware(ApiKeyMiddleware)
+    # Allow the Yochai app (and configured origins) to POST the request form cross-origin.
+    origins = [o.strip() for o in os.getenv(
+        "GATEWAY_CORS_ORIGINS",
+        "https://yochai.lightningstudios.ai,http://localhost:8080,http://localhost:5173",
+    ).split(",") if o.strip()]
+    http_app.add_middleware(
+        CORSMiddleware, allow_origins=origins,
+        allow_methods=["GET", "POST", "OPTIONS"], allow_headers=["*"],
+    )
     return http_app
 
 
