@@ -75,25 +75,38 @@ _THANKS = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 
 
 async def _send_key_email(email: str, api_key: str) -> bool:
-    """Email the approved key via Mandrill (Mailchimp Transactional). Returns True if sent."""
-    key = os.getenv("MANDRILL_API_KEY")
-    from_email = os.getenv("MANDRILL_FROM_EMAIL", "noreply@lightningstudios.ai")
-    from_name = os.getenv("MANDRILL_FROM_NAME", "Yochai Open KG")
+    """Email the approved key via Mailchimp Transactional (Mandrill) — the same method
+    the rest of the app uses (see infrastructure/gcp-functions/shared/send-email):
+    MAILCHIMP_API_KEY, the verified support@lightninginspiration.com sender, and the
+    messages/send endpoint. Returns True if accepted."""
+    key = os.getenv("MAILCHIMP_API_KEY")
     if not key:
         return False
-    body = (
+    from_email = os.getenv("MAILCHIMP_FROM_EMAIL", "support@lightninginspiration.com")
+    from_name = os.getenv("MAILCHIMP_FROM_NAME", "Yochai Open KG")
+    quickstart = "https://github.com/Lightning-Learning-Studios/yochai-kg/blob/main/docs/quickstart-mcp.md"
+    text = (
         f"Your Yochai Open KG API key is approved.\n\nAPI key: {api_key}\n\n"
         "Use it in your MCP client as the x-api-key header against\n"
         "https://yochai-kg-gateway-production.up.railway.app/mcp\n\n"
-        "Quickstart: https://github.com/Lightning-Learning-Studios/yochai-kg/blob/main/docs/quickstart-mcp.md\n\n"
+        f"Quickstart: {quickstart}\n\n"
         "Free and read-only. A chavruta, not a posek — verify all output against the primary sources."
     )
+    html = (
+        "<p>Your <b>Yochai Open KG</b> API key is approved.</p>"
+        f"<p><b>API key:</b> <code>{api_key}</code></p>"
+        "<p>Use it as the <code>x-api-key</code> header against "
+        "<code>https://yochai-kg-gateway-production.up.railway.app/mcp</code>.</p>"
+        f'<p><a href="{quickstart}">Quickstart guide</a></p>'
+        "<p>Free and read-only. A chavruta, not a posek — verify all output against the primary sources.</p>"
+    )
     payload = {"key": key, "message": {
+        "html": html, "text": text, "subject": "Your Yochai Open KG API key",
         "from_email": from_email, "from_name": from_name,
-        "to": [{"email": email, "type": "to"}],
-        "subject": "Your Yochai Open KG API key", "text": body}}
+        "to": [{"email": email}], "tags": ["yochai-kg-api-key"],
+        "track_opens": True, "track_clicks": False}}
     async with httpx.AsyncClient(timeout=10.0) as c:
-        r = await c.post("https://mandrillapp.com/api/1.0/messages/send.json", json=payload)
+        r = await c.post("https://mandrillapp.com/api/1.0/messages/send", json=payload)
         if r.status_code >= 300:
             return False
         data = r.json()

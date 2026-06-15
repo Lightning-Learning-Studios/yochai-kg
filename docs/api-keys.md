@@ -36,9 +36,11 @@ Free, read-only access is gated by lightweight API keys so the shared graph stay
    - Set `SLACK_BOT_TOKEN` (`xoxb-…`) and `SLACK_SIGNING_SECRET`.
    - **Interactivity & Shortcuts** → on → Request URL: `https://<gateway-host>/slack/interactions`.
    - Optionally set `SLACK_CHANNEL` (defaults to `#yochai`).
-3. **Email (Mandrill):** set `MANDRILL_API_KEY` (+ optional `MANDRILL_FROM_EMAIL`, `MANDRILL_FROM_NAME`)
-   to email approved keys automatically via Mailchimp Transactional. Without it, the approved key
-   appears in the Slack thread for manual delivery.
+3. **Email (Mailchimp Transactional / Mandrill):** set `MAILCHIMP_API_KEY` — the **same key the rest
+   of the app uses** (see `infrastructure/gcp-functions/shared/send-email`). Approved keys are emailed
+   from the verified `support@lightninginspiration.com` sender via `messages/send` (override with
+   `MAILCHIMP_FROM_EMAIL` / `MAILCHIMP_FROM_NAME`). Without it, the approved key appears in the Slack
+   thread for manual delivery.
 4. **Turn the gate on:** `GATEWAY_REQUIRE_API_KEY=true`.
 
 ## Operating
