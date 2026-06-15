@@ -26,7 +26,7 @@ Connect any MCP client (Claude Desktop, Claude API, Cursor, your own agent) to t
   "mcpServers": {
     "yochai-kg": {
       "type": "http",
-      "url": "https://<gateway-host>/mcp",
+      "url": "https://yochai-kg-gateway-production.up.railway.app/mcp",
       "headers": { "x-api-key": "YOUR_FREE_KEY" }
     }
   }

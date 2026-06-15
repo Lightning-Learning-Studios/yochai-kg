@@ -11,13 +11,19 @@ import logging
 import os
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from . import config, tools
 
 logging.basicConfig(level=logging.INFO)
 
+# Hosted behind a reverse proxy (Railway) with arbitrary forwarded Host headers,
+# and gated by our own API key. MCP's DNS-rebinding host check (meant to protect
+# localhost servers from malicious web pages) is inapplicable here and rejects the
+# proxy host with "Invalid Host header", so disable it for the HTTP transport.
 mcp = FastMCP(
     "yochai-kg",
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     instructions=(
         "Read-only access to the Yochai knowledge graph of the Jewish textual tradition "
         "(1,000+ works: Tanakh, Talmud, Midrash, Halakha, Kabbalah, Hasidut, philosophy, "
