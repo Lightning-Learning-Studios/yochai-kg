@@ -62,8 +62,16 @@ def _passage(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Many SemanticUnits have a blank english_text/hebrew_text PROPERTY even though the
+# text exists on their constituent verses (a denormalization gap). Reconstruct from
+# the verses when the property is empty, so a passage is never returned blank.
+# (Phantom SUs — no verses, no anchor — are excluded upstream via the anchor guard.)
 _SU_FIELDS = """
-       su.su_id AS su_id, su.english_text AS english_text, su.hebrew_text AS hebrew_text,
+       su.su_id AS su_id,
+       CASE WHEN coalesce(su.english_text,'') <> '' THEN su.english_text
+            ELSE trim(reduce(s = '', x IN [(vtu:TextUnit)-[:IN_UNIT]->(su) WHERE coalesce(vtu.english_text,'') <> '' | vtu.english_text] | s + ' ' + x)) END AS english_text,
+       CASE WHEN coalesce(su.hebrew_text,'') <> '' THEN su.hebrew_text
+            ELSE trim(reduce(s = '', x IN [(vtu:TextUnit)-[:IN_UNIT]->(su) WHERE coalesce(vtu.hebrew_text,'') <> '' | vtu.hebrew_text] | s + ' ' + x)) END AS hebrew_text,
        su.canonical_ref AS canonical_ref, su.section_label AS section_label,
        su.daf_label AS daf_label,
        su.first_anchor_id AS first_anchor_id, su.last_anchor_id AS last_anchor_id,
@@ -79,9 +87,11 @@ async def search_corpus(query: str, text_filter: str | None = None, limit: int |
 
     if text_filter:
         # Exact cosine scan scoped to one text — avoids cross-text leakage.
+        # `first_anchor_id <> ''` excludes phantom SUs (empty, anchorless, unlinkable).
         cypher = f"""
         MATCH (su:SemanticUnit)-[:BELONGS_TO]->(t:Text)
         WHERE toLower(su.text_slug) = toLower($slug) AND su.embedding IS NOT NULL
+          AND coalesce(su.first_anchor_id,'') <> ''
         WITH su, t, vector.similarity.cosine(su.embedding, $embedding) AS similarity
         WHERE similarity > $threshold
         RETURN {_SU_FIELDS}, similarity
@@ -89,15 +99,16 @@ async def search_corpus(query: str, text_filter: str | None = None, limit: int |
         """
         rows = await read_with_vector(cypher, vec, {"slug": text_filter, "threshold": config.SIMILARITY_THRESHOLD, "n": n})
     else:
+        # Over-fetch the ANN pool so the phantom guard doesn't starve the result count.
         cypher = f"""
         CALL db.index.vector.queryNodes('semantic_unit_embeddings', $pool, $embedding)
         YIELD node AS su, score AS similarity
-        WHERE similarity > $threshold
+        WHERE similarity > $threshold AND coalesce(su.first_anchor_id,'') <> ''
         MATCH (su)-[:BELONGS_TO]->(t:Text)
         RETURN {_SU_FIELDS}, similarity
         ORDER BY similarity DESC LIMIT $n
         """
-        rows = await read_with_vector(cypher, vec, {"pool": n, "threshold": config.SIMILARITY_THRESHOLD, "n": n})
+        rows = await read_with_vector(cypher, vec, {"pool": max(n * 4, 40), "threshold": config.SIMILARITY_THRESHOLD, "n": n})
 
     return {"query": query, "text_filter": text_filter, "count": len(rows), "passages": [_passage(r) for r in rows]}
 
@@ -386,6 +397,7 @@ async def get_concept_sources(canonical_id: str, limit: int | None = None) -> di
     rows = await read(
         f"""
         MATCH (c:CanonicalConcept {{canonical_id: $id}})<-[:INSTANCE_OF]-(m:CorridorModule)-[:COVERS]->(su:SemanticUnit)
+        WHERE coalesce(su.first_anchor_id,'') <> ''
         MATCH (su)-[:BELONGS_TO]->(t:Text)
         WITH DISTINCT su, t
         RETURN {_SU_FIELDS}, null AS similarity
