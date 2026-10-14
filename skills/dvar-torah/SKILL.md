@@ -18,8 +18,14 @@ problem, one insight, one landing.
 
 - `search_corpus(query, text_filter?, limit?)` — find the core text and surface
   midrash/commentary thematically.
-- `lookup_passage(reference)` — pull the anchor verse or sugya exactly.
-- `get_commentaries_on(reference)` — gather the traditional voices on the base text.
+- `lookup_passage(reference)` — pull the anchor verse or sugya exactly. Takes a
+  slug-style canonical id, not a human citation — see *Referencing passages* in the
+  [skills README](../README.md).
+- `get_commentaries_on(reference, limit?)` — gather the traditional voices. Takes a
+  base slug (`bavli-berakhot`) or canonical id, not `"Genesis 22:2"`.
+- `get_talmudic_structure(reference)` — when the anchor is a sugya: its driving
+  question, its `maskana`, and the ordered dialectical moves. The textual problem a
+  dvar needs is often already named there.
 - `search_concepts` / `get_concept_neighborhood` — find a productive tension or
   development to drive the dvar.
 
@@ -31,15 +37,26 @@ imposed. Work in three stages — **outline → source-step → build** — and 
 attribute an idea to a named source when a retrieved passage supports it.
 
 1. **Anchor the core text.** Pull the verse or sugya exactly so you quote it
-   honestly. `lookup_passage(reference="Genesis 22:2")`. Read what's actually
-   there; name the textual problem precisely (an odd word, a doubling, a gap, a
-   contradiction).
+   honestly. Resolve the citation to a canonical id first —
+   `lookup_passage(reference="bereishit_22_2")`, not `"Genesis 22:2"`, which returns
+   `found: false`. Read what's actually there; name the textual problem precisely
+   (an odd word, a doubling, a gap, a contradiction).
+
+   If the anchor is a Talmudic passage, call
+   `get_talmudic_structure(reference="bavli-berakhot_5_1")` as well: it returns the
+   sugya's `driving_question` and `maskana` outright, which saves you reconstructing
+   the problem from the surface of the text.
 2. **Outline the move (in your reasoning, not the essay).** Decide the path:
    a difficulty the commentaries skip; a rishonim dialectic; a pshat→derash arc;
    or a perennial human problem the text lights up. The outline tells you which
    sources you need before you search.
-3. **Gather the traditional voices.** `get_commentaries_on(reference="Genesis 22:2")`
-   for the classical readings (Rashi, Ramban, Ibn Ezra…). Then one targeted
+3. **Gather the traditional voices.** For a Talmudic anchor,
+   `get_commentaries_on(reference="bavli-berakhot")` works directly. For a Torah
+   anchor it returns `count: 0` — go through the commentary text instead:
+   `lookup_passage(reference="rashi-on-genesis_22_2_1")` for the exact comment
+   (note the fourth id segment), or
+   `search_corpus(query="…", text_filter="ramban-on-genesis")` for a thematic pull.
+   See *Getting commentary on a Torah verse* in the [skills README](../README.md). Then one targeted
    `search_corpus(query="Akedah test why God commanded sacrifice", text_filter="ramban-on-genesis")`
    per role you still need (a counter-voice, a midrash, a Hasidic expansion).
 4. **Find the tension to explore.** `search_concepts(query="trial of faith")` →
@@ -67,10 +84,12 @@ reference. Shape: **hook → textual problem → argument-through-sources → la
 
 **Request:** "A six-minute dvar on Korach for a shul crowd."
 
-1. `lookup_passage(reference="Numbers 16:1-3")` → Korach's challenge: *"all the
-   congregation are holy."*
-2. `get_commentaries_on(reference="Numbers 16:1")` → Rashi on Korach's lineage
-   and motive; a midrashic read of the rhetorical trap.
+1. `lookup_passage(reference="bamidbar_16_3")` → Korach's challenge: *"all the
+   congregation are holy."* (Ids carry no ranges; pull 16:1 and 16:2 separately if
+   you need the full opening.)
+2. Korach is a Torah anchor, so skip `get_commentaries_on` and pull the commentary
+   text directly: `search_corpus(query="Korach lineage motive rebellion",
+   text_filter="rashi-on-numbers")` → Rashi on Korach's lineage and motive.
 3. `search_concepts(query="dissent and authority")` →
    `get_concept_neighborhood(canonical_id="c_dissent", rel_types=["CONTRADICTS"])`
    → a tension between legitimate critique and self-serving rebellion.
