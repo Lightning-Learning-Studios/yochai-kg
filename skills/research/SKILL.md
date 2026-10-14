@@ -25,6 +25,12 @@ Sources are the deliverable here — not an essay.
   cross-reference.
 - `get_entities_in_passage(su_id)` — see who/what a key passage invokes, to chase
   threads.
+- `get_concept_sources(canonical_id, limit?)` — the corpus passages that actually
+  ground a concept. Use it to check that a concept's definition is backed by text
+  before you build a cluster on it.
+- `get_temporal_neighbors(canonical_id, limit?)` — what historically precedes and
+  follows a concept. This is the tool for the "across eras" half of the brief;
+  `get_prerequisites` answers a pedagogical question, not a chronological one.
 
 ## Method
 
@@ -44,11 +50,18 @@ best reading, then offer to refine.
    `search_concepts(query="anger ka'as")` → `get_concept(canonical_id="c_kaas")`.
    Then `get_concept_neighborhood(canonical_id="c_kaas", rel_types=["CONTRADICTS","DEVELOPS"])`
    to find where the sources disagree or build on each other — that's your tension map.
-4. **Chase threads from key passages.** For a pivotal hit,
+4. **Trace the idea through time.** `get_temporal_neighbors(canonical_id="cluster_15946")`
+   returns `earlier` and `later` concepts with their `era_span`. A cluster that only
+   has `later` neighbours is an origin point; one with both is a development. This
+   turns "what does the tradition say" into "where does this idea come from and what
+   did it become" — and it is cheap, one call per concept. Ground any cluster you
+   name with `get_concept_sources(canonical_id="…")` so the abstraction is backed by
+   passages you can cite.
+5. **Chase threads from key passages.** For a pivotal hit,
    `get_entities_in_passage(su_id="<su_id from the result>")` to see the people,
    places, and concepts it invokes, and run a follow-up `search_corpus` if a thread
    is worth pulling.
-5. **Synthesize a source map.** Group the findings into clusters; name the
+6. **Synthesize a source map.** Group the findings into clusters; name the
    tension(s) and any outlier; refer to every source by its citation. Keep the
    prose focused — you're a research librarian presenting a map, not a teacher
    delivering a lecture. Close by inviting refinement.
