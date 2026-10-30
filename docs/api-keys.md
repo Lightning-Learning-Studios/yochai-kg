@@ -40,5 +40,15 @@ See the function's `deploy.sh` and the readiverse-haven Slack setup:
   `<function-url>/slack/interactions`.
 - **Yochai app:** set `VITE_GCP_YOCHAI_KG_ACCESS_URL` to the function URL.
 
+## Usage tracking
+Each authenticated `/mcp` request calls the `record_yochai_kg_api_usage` RPC
+(`migrations/002_api_usage.sql`) fire-and-forget, after the response finishes. The RPC
+atomically increments `yochai_kg_api_keys.request_count`, sets `last_used_at`, and appends one
+row to `yochai_kg_api_usage`: key id, time, HTTP method, JSON-RPC method (`initialize`,
+`tools/list`, `tools/call`, …), tool name, MCP client name, session id, status code and latency.
+It never stores tool arguments, queries or results. Recording failures are logged and ignored;
+they never affect the request. Until 002 is applied, the gateway falls back to updating only
+`last_used_at`. Static `GATEWAY_API_KEYS` have no row and are not tracked.
+
 Revoke a key by setting its `status` to `revoked` in `yochai_kg_api_keys` (the gateway only accepts
 `active`).

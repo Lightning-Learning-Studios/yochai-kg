@@ -7,8 +7,10 @@ GATEWAY_REQUIRE_API_KEY=true.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import time
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -182,6 +184,34 @@ async def run_cypher(query: str, params: dict | None = None, limit: int | None =
 
 
 # --- HTTP app with free-API-key gate ----------------------------------------
+def _ms_since(started: float) -> int:
+    return int((time.monotonic() - started) * 1000)
+
+
+def _rpc_meta(raw: bytes) -> dict:
+    """Pull the JSON-RPC method, tool name and client name out of an MCP request
+    body for usage stats. Reads only those three labels; never keeps arguments.
+    Malformed bodies yield {} (the MCP layer reports the real error)."""
+    try:
+        msg = json.loads(raw or b"{}")
+    except ValueError:
+        return {}
+    if isinstance(msg, list):  # JSON-RPC batch (older protocol versions)
+        msg = msg[0] if msg else {}
+    if not isinstance(msg, dict):
+        return {}
+    method = msg.get("method")
+    params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
+    meta: dict = {"rpc_method": method if isinstance(method, str) else None}
+    if method == "tools/call" and isinstance(params.get("name"), str):
+        meta["tool_name"] = params["name"]
+    elif method == "initialize":
+        info = params.get("clientInfo")
+        if isinstance(info, dict) and isinstance(info.get("name"), str):
+            meta["client_name"] = info["name"]
+    return meta
+
+
 def build_http_app():
     """Return the Streamable-HTTP ASGI app: the MCP endpoint at /mcp plus an API-key
     gate that validates against the static allowlist and the Supabase key store.
@@ -197,23 +227,59 @@ def build_http_app():
 
     http_app = mcp.streamable_http_app()
 
-    async def _key_ok(provided: str) -> bool:
+    async def _check_key(provided: str) -> tuple[bool, str | None]:
+        """(accepted, Supabase key id). Static allowlist keys have no row, so no id."""
         if provided and provided in config.API_KEYS:
-            return True
+            return True, None
         if key_store.configured():
-            return await key_store.validate_key(provided)
-        return False
+            key_id = await key_store.validate_key(provided)
+            return key_id is not None, key_id
+        return False, None
 
     class ApiKeyMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request, call_next):
-            if config.REQUIRE_API_KEY and request.url.path.rstrip("/").endswith("/mcp"):
-                provided = request.headers.get("x-api-key") or ""
-                auth = request.headers.get("authorization", "")
-                if auth.lower().startswith("bearer "):
-                    provided = provided or auth[7:].strip()
-                if not await _key_ok(provided):
-                    return JSONResponse({"error": "invalid or missing API key"}, status_code=401)
-            return await call_next(request)
+            if not (config.REQUIRE_API_KEY and request.url.path.rstrip("/").endswith("/mcp")):
+                return await call_next(request)
+            provided = request.headers.get("x-api-key") or ""
+            auth = request.headers.get("authorization", "")
+            if auth.lower().startswith("bearer "):
+                provided = provided or auth[7:].strip()
+            ok, key_id = await _check_key(provided)
+            if not ok:
+                return JSONResponse({"error": "invalid or missing API key"}, status_code=401)
+            if key_id is None:
+                return await call_next(request)
+
+            # Usage tracking: metadata only (method / tool / client), never arguments.
+            started = time.monotonic()
+            meta = _rpc_meta(await request.body()) if request.method == "POST" else {}
+            fields = {
+                "http_method": request.method,
+                "session_id": request.headers.get("mcp-session-id"),
+                **meta,
+            }
+            try:
+                response = await call_next(request)
+            except Exception:
+                key_store.record_usage_soon(key_id, status_code=500,
+                                            latency_ms=_ms_since(started), **fields)
+                raise
+            fields["status_code"] = int(response.status_code)
+            # initialize is answered with a brand-new session id; tag it so the
+            # client name links to the rest of that session's calls.
+            fields["session_id"] = fields["session_id"] or response.headers.get("mcp-session-id")
+            # Streamable HTTP may stream the body (SSE), so record when it finishes.
+            body = response.body_iterator
+
+            async def _timed_body():
+                try:
+                    async for chunk in body:
+                        yield chunk
+                finally:
+                    key_store.record_usage_soon(key_id, latency_ms=_ms_since(started), **fields)
+
+            response.body_iterator = _timed_body()
+            return response
 
     http_app.add_middleware(ApiKeyMiddleware)
     return http_app
