@@ -311,7 +311,8 @@ async def search_entities(query: str, entity_type: str | None = None, limit: int
     async def _run(q: str):
         cypher = """
         CALL db.index.fulltext.queryNodes('entity_name_fulltext', $q) YIELD node AS e, score
-        WHERE $etype IS NULL OR e.entity_type = $etype
+        WHERE e.merged_into IS NULL  // merged-away duplicates keep their node but no edges
+          AND ($etype IS NULL OR e.entity_type = $etype)
         RETURN e.entity_id AS entity_id, e.name AS name, e.name_hebrew AS name_hebrew,
                e.entity_type AS entity_type, e.description AS description,
                e.domain AS domain, e.text_slug AS text_slug, score
@@ -334,8 +335,13 @@ async def get_related_entities(entity_id: str, rel_types: list[str] | None = Non
     DEVELOPS, CONTRADICTS, EXEMPLIFIES, APPLIES_TO, CONTEXTUALIZES, EQUIVALENT."""
     n = config.clamp_limit(limit)
     cypher = """
-    MATCH (e:Entity {entity_id: $id})-[r:DEVELOPS|CONTRADICTS|EXEMPLIFIES|APPLIES_TO|CONTEXTUALIZES|EQUIVALENT]-(o:Entity)
-    WHERE $rel_types IS NULL OR type(r) IN $rel_types
+    MATCH (e0:Entity {entity_id: $id})
+    // A merged-away id resolves to its survivor, which now holds the edges.
+    OPTIONAL MATCH (s:Entity {entity_id: e0.merged_into})
+    WITH coalesce(s, e0) AS e
+    MATCH (e)-[r:DEVELOPS|CONTRADICTS|EXEMPLIFIES|APPLIES_TO|CONTEXTUALIZES|EQUIVALENT]-(o:Entity)
+    WHERE o.merged_into IS NULL
+      AND ($rel_types IS NULL OR type(r) IN $rel_types)
     RETURN o.entity_id AS entity_id, o.name AS name, o.entity_type AS entity_type,
            type(r) AS relationship, r.confidence AS confidence, r.evidence_count AS evidence_count
     ORDER BY r.confidence DESC LIMIT $n
