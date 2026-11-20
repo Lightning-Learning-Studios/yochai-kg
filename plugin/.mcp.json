@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "yochai": {
+      "type": "http",
+      "url": "https://mcp.yochai.wiki/mcp"
+    }
+  }
+}

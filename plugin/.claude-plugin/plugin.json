@@ -1,0 +1,15 @@
+{
+  "name": "yochai-jewish-texts",
+  "displayName": "Yochai: Jewish Texts",
+  "version": "0.1.0",
+  "description": "Study Torah, Talmud and more. Find real passages in Hebrew and English, follow the weekly portion, prepare a class, or learn with a study partner. Free, no sign-in.",
+  "author": {
+    "name": "Lightning Studios",
+    "url": "https://www.lightningstudios.ai"
+  },
+  "homepage": "https://www.yochai.wiki",
+  "privacyPolicyUrl": "https://mcp.yochai.wiki/privacy",
+  "repository": "https://github.com/Lightning-Learning-Studios/yochai-kg",
+  "license": "Apache-2.0",
+  "keywords": ["torah", "talmud", "jewish-texts", "judaism", "hebrew", "study", "parasha", "daf-yomi"]
+}
