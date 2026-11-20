@@ -21,8 +21,21 @@ When you (or your agent) build on this graph:
 
 ## Content licensing
 
-Corpus content derives largely from public-domain and Creative-Commons sources (notably
-Sefaria's CC-licensed texts). Individual texts retain their own licenses; see the source links.
-The gateway **code** in this repository is Apache-2.0 (see [LICENSE](../LICENSE)). The graph
-**data** is provided for study and research use; do not assume blanket rights to redistribute
-underlying texts whose licenses restrict it.
+The **code** in this repository is Apache-2.0 (see [LICENSE](../LICENSE)).
+
+The **texts** are shown under Yochai's display licences, which cover the Yochai app, the developer gateway and
+the open plugin server. Each passage says where its English came from:
+
+| Source shown with the passage | What it means |
+| --- | --- |
+| Sefaria | The English comes from the Sefaria library. The specific edition and its licence are listed on sefaria.org. |
+| Dicta | The English is a machine translation by Dicta. Check it against the Hebrew. |
+| AI-assisted translation | The English was prepared for Yochai with AI help. Check it against the Hebrew. |
+| Not recorded | The source of the English was not recorded. Check it against the Hebrew. |
+
+What this allows: reading and quoting passages for study, teaching and research, with the credit and the link.
+
+What it does not allow: copying the library in bulk, or republishing the texts as your own collection. Both
+servers cap the amount of text in one response and limit the number of requests for this reason.
+
+The open plugin server is free and stays free. It carries no advertisements.

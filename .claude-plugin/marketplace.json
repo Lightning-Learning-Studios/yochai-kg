@@ -1,0 +1,21 @@
+{
+  "name": "yochai",
+  "owner": {
+    "name": "Lightning Studios",
+    "url": "https://www.lightningstudios.ai"
+  },
+  "metadata": {
+    "description": "Plugins from Yochai, the Jewish learning platform built with Gratz College and funded by the Maimonides Fund."
+  },
+  "plugins": [
+    {
+      "name": "yochai-jewish-texts",
+      "source": "./plugin",
+      "description": "Study Torah, Talmud and more. Real passages in Hebrew and English, the weekly portion, class preparation and a study partner.",
+      "version": "0.1.0",
+      "category": "education",
+      "license": "Apache-2.0",
+      "homepage": "https://www.yochai.wiki"
+    }
+  ]
+}

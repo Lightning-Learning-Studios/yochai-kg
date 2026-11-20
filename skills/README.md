@@ -17,15 +17,74 @@ citation reference and a deep-link where applicable.
 
 | Tool | What it does |
 | --- | --- |
-| `search_corpus(query, text_filter?, limit?)` | Semantic search over the corpus. Returns ranked bilingual passages with citation ref + deep-link. |
-| `lookup_passage(reference)` | Exact passage by reference, e.g. `"Berakhot 2a"`, `"Genesis 1:1"`. Deterministic, not similarity-based. |
-| `search_concepts(query)` | Find canonical concepts by theme. |
-| `get_concept(canonical_id)` | A concept's definition, difficulty, and traditions. |
-| `get_concept_neighborhood(canonical_id, rel_types?)` | Typed concept neighbors: `DEVELOPS`, `CONTRADICTS`, `RESONATES`, `EXEMPLIFIES`, `APPLIES_TO`, `ADDRESSES`, `SHARES_METHOD`, `CONTEXTUALIZES`. |
-| `get_prerequisites(canonical_id)` | Prerequisite-DAG ancestors, for learning order. |
-| `list_galaxies()` / `browse_constellation(constellation_id)` | Macro thematic navigation across the graph. |
-| `get_commentaries_on(reference)` | Commentary passages on a base text. |
-| `get_entities_in_passage(su_id)` | People, places, themes, and concepts mentioned in a passage. |
+| `search_corpus(query, text_filter?, limit?)` | Semantic search over the corpus. Returns ranked bilingual passages with `su_id`, `anchor`, `reference` + deep-link. |
+| `lookup_passage(reference)` | Exact passage by **slug-style canonical id**, e.g. `bereishit_1_1`. Deterministic, not similarity-based. See *Referencing passages* below. |
+| `list_texts(genre?, limit?)` | List corpus texts with their `slug`, `title`, `genre`, `era`. The way to discover a `text_filter` or build a canonical id. |
+| `search_concepts(query, limit?)` | Find canonical concepts by theme. |
+| `get_concept(canonical_id)` | A concept's definition, guiding question, gateway insight, difficulty, traditions, era span. |
+| `get_concept_neighborhood(canonical_id, rel_types?, limit?)` | Typed concept neighbors: `DEVELOPS`, `CONTRADICTS`, `RESONATES`, `EXEMPLIFIES`, `APPLIES_TO`, `ADDRESSES`, `SHARES_METHOD`, `CONTEXTUALIZES`, `COMMENTARY`. |
+| `get_concept_sources(canonical_id, limit?)` | The corpus passages that ground a concept — read the texts behind the abstraction. |
+| `get_prerequisites(canonical_id, limit?)` | Prerequisite-DAG ancestors and what the concept unlocks, for learning order. |
+| `get_temporal_neighbors(canonical_id, limit?)` | Concepts that historically precede/follow this one — chronological, distinct from the pedagogical order. |
+| `list_galaxies()` / `browse_constellation(constellation_id?, galaxy_id?, limit?)` | Macro thematic navigation across the graph. |
+| `get_corridors_for_text(text_slug, limit?)` / `get_corridor(corridor_id, limit?)` | Pre-built learning sequences over a text: ordered modules with concept, domain, anchor quote. |
+| `get_commentaries_on(reference, limit?)` | Commentary passages on a base text. Takes a **base slug** (`bavli-berakhot`) or canonical id. In practice it resolves for Talmud bases; Tanakh bases return `count: 0` — see *Getting commentary on a Torah verse* below. |
+| `get_connections(reference, kinds?, limit?)` | The Sefaria/citation connection graph for a passage (`CONNECTS_TO`): commentary, quoting-commentary, midrash, targum, cross-Talmud/Tanakh links, mesorat hashas, ein mishpat. |
+| `get_entities_in_passage(su_id, limit?)` | People, places, themes, and concepts mentioned in a passage. |
+| `search_entities(query, entity_type?, limit?)` | Search the extraction layer (people, places, themes, teachings, tensions, questions). Machine-extracted — rich evidence, not adjudicated truth. |
+| `get_related_entities(entity_id, rel_types?, limit?)` | Entity-to-entity relations found within texts. |
+| `get_talmudic_structure(reference)` | For a Talmud passage: its sugya (driving question, `maskana`) and the ordered dialectical moves (speaker, stratum). |
+| `run_cypher(query, params?, limit?)` | Your own read-only Cypher against the graph. Writes blocked, LIMIT enforced. See [`docs/schema.md`](../docs/schema.md). |
+
+## Referencing passages
+
+`lookup_passage` and `get_commentaries_on` take **slug-style canonical ids**, not human-readable
+citations. `lookup_passage(reference="Genesis 22:2")` returns `found: false`; the id is
+`bereishit_22_2`. The format is `<text_slug>_<chapter>_<verse>` (see
+[`docs/schema.md`](../docs/schema.md#identifiers-youll-see)).
+
+Two reliable ways to get a real id:
+
+1. **From a search result.** `search_corpus` returns `su_id`, `text_slug`, and `anchor` on every
+   passage. Pass those onward rather than reconstructing a citation by hand.
+2. **By looking the slug up.** `list_texts(genre="midrash")` browses by genre, but results are
+   clamped (25 per call against 1,037 texts), so it is for browsing, not for finding one known
+   work. To find a specific slug, use `run_cypher`:
+
+   ```cypher
+   MATCH (t:Text) WHERE toLower(t.title) CONTAINS 'rashi on genesis'
+   RETURN t.slug, t.title, t.genre
+   ```
+
+   Then combine the slug with chapter and verse.
+
+Three things to know before you build an id by hand:
+
+- **No ranges.** `bereishit_22_1-19` does not resolve. One call per verse, or use `search_corpus`
+  for the span.
+- **Commentaries carry a fourth segment.** A commentary id is
+  `<slug>_<chapter>_<verse>_<comment#>`: Rashi on Genesis 22:2 is `rashi-on-genesis_22_2_1`, not
+  `rashi-on-genesis_22_2`. Base texts use the three-part form.
+- **Talmud numbering is not daf/amud.** `bavli-sanhedrin_56_1` is not "Sanhedrin 56a". Don't map
+  a daf reference to a chapter number by arithmetic — search for the passage and take its id.
+- **Verify the hit.** A resolved id returns `found: true` plus the text. Read it and confirm it is
+  the passage you meant before you cite it. A miss returns `found: false` with a format hint.
+
+## Getting commentary on a Torah verse
+
+`get_commentaries_on` is the obvious call, but for Tanakh bases it comes back empty:
+`get_commentaries_on(reference="bereishit_22_2")`, `"bereishit"`, and `"bamidbar_16_1"` all return
+`count: 0`, while `get_commentaries_on(reference="bavli-berakhot")` returns results. The
+commentary *texts* are in the corpus either way — `rashi-on-genesis`, `ramban-on-genesis`,
+`ibn-ezra-on-genesis` all exist as `Text` nodes.
+
+So for Torah commentary, go through the commentary text directly:
+
+- **Exact comment:** `lookup_passage(reference="rashi-on-genesis_22_2_1")` → *"קח נא TAKE NOW —
+  The word נא is used as a request…"*. Remember the fourth segment.
+- **Thematic:** `search_corpus(query="…", text_filter="ramban-on-genesis")`.
+- **Citation graph:** `get_connections(reference="bereishit_22_2")` surfaces quoting-commentary
+  and midrash links where the connection layer covers the verse (roughly a quarter of text units).
 
 ## Anatomy of a `SKILL.md`
 

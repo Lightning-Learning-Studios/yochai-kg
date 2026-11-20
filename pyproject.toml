@@ -6,11 +6,14 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 dependencies = [
-    "mcp>=1.2.0",
-    "neo4j>=5.20",
-    "httpx>=0.27",
-    "uvicorn>=0.30",
-    "starlette>=0.37",
+    "mcp>=1.12,<2",  # 2.x renamed FastMCP to MCPServer; the gateway is v1 code
+    "neo4j>=5.20,<6",
+    "httpx>=0.27,<1",
+    "uvicorn>=0.30,<1",
+    "starlette>=0.37,<1",
+    "pydantic>=2.7,<3",
+    "pyluach>=2.2,<3",
+    "markdown>=3.5,<4",
 ]
 
 [project.optional-dependencies]
@@ -18,13 +21,27 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.5"]
 
 [project.scripts]
 yochai-kg-gateway = "gateway.server:main"
+yochai-open-server = "gateway.open_server:main"
 
 [tool.setuptools]
-packages = ["gateway", "apikeys"]
+packages = ["gateway", "apikeys", "pipeline"]
+
+[tool.setuptools.package-data]
+gateway = ["pages/*.md"]
 
 [tool.ruff]
 line-length = 120
 target-version = "py311"
 
+[tool.ruff.lint.per-file-ignores]
+# Findings in files that predate the plugin work. They are left as they are.
+"gateway/tools.py" = ["BLE001"]
+"gateway/server.py" = ["BLE001", "E302", "E305"]
+"tests/live_smoke.py" = ["EXE001", "SIM117", "I001"]
+"tests/test_tools_smoke.py" = ["I001"]
+"submitted_texts/validate_submission.py" = ["EXE001", "I001", "FURB167"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["."]

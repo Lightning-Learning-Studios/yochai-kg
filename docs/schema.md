@@ -1,5 +1,8 @@
 # Knowledge Graph Schema
 
+> Data fixes of 11–12 Nov 2026 (daf labels, mention weights, re-segmented texts, entity merges) added a few
+> properties; see [fixes/2026-11-11-yochai-kg-data-fixes.md](fixes/2026-11-11-yochai-kg-data-fixes.md).
+
 The Yochai KG is a Neo4j graph of the Jewish textual tradition. Counts below are
 from the production graph (2026-06; they grow as the corpus expands). Everything
 here is **read-only** through the gateway.
@@ -38,8 +41,8 @@ Text ──BELONGS_TO── TextUnit ──IN_UNIT── SemanticUnit ──(vec
 | --- | --- | --- |
 | `Text` | 1,037 | `slug`, `title`, `genre`, `era`, `author` |
 | `TextUnit` | 1.03M | `canonical_id` (`<slug>_<chapter>_<verse>`), `text_slug`, `english_text`, `hebrew_text`, `en_source` |
-| `SemanticUnit` | 373K | `su_id`, `text_slug`, `english_text`, `hebrew_text`, `canonical_ref`, `section_label`, `first_anchor_id`, `last_anchor_id`, `genre`, `era`, `embedding` (1024-d) |
-| `Entity` | 2.57M | `entity_id`, `entity_type`, `name`, `name_hebrew`, `description`, `domain`, `embedding` |
+| `SemanticUnit` | 373K | `su_id`, `text_slug`, `english_text`, `hebrew_text`, `canonical_ref`, `section_label`, `first_anchor_id`, `last_anchor_id`, `genre`, `era`, `embedding` (1024-d), `is_hub` (linked to >300 entities) |
+| `Entity` | 2.57M | `entity_id`, `entity_type`, `name`, `name_hebrew`, `description`, `domain`, `wikidata_qid`/`sefaria_slug` (null when absent), `embedding`; hubs: `aliases`, `aliases_he`; merged-away duplicates: `merged_into` (follow it to the hub) |
 | `Sugya` / `Move` | 16.7K / 131K | Talmudic discourse structure (`driving_question`, `maskana`; move `type`, `speaker`, `stratum`) |
 | `CanonicalConcept` | 17,635 | `canonical_id`, `name`, `name_hebrew`, `one_line_definition`, `description`, `question`, `gateway_insight`, `difficulty` (foundational/intermediate/advanced), `is_keystone`, `domain`, `traditions`, `era_span`, `embedding` |
 | `Constellation` | 269 | `constellation_id`, `name`, `fundamental_question`, `gateway_insight`, `primary_domain`, `galaxy_id`, `size`, `embedding` |
@@ -77,7 +80,7 @@ the concept DAG was built.)
 **Extraction layer**
 | Type | From → To | Count | Meaning |
 | --- | --- | --- | --- |
-| `MENTIONED_IN {importance}` | Entity → SemanticUnit | 3.46M | Entity appears in passage |
+| `MENTIONED_IN {importance, idf_w, w_ver}` | Entity → SemanticUnit | 3.88M | Entity appears in passage; `importance` (0–1) is an inverse-frequency weight (since 2026-11-12) |
 | `EXTRACTED_FROM {importance}` | Entity → TextUnit | 4.85M | Extraction provenance |
 | `DEVELOPS` / `CONTRADICTS` / `EXEMPLIFIES` / `APPLIES_TO` / `CONTEXTUALIZES` / `EQUIVALENT` | Entity → Entity | 614K / 338K / 190K / 23K / 6K / 31K | Discovered entity-to-entity relations |
 | `LOCATED_IN` | Sugya → TextUnit | 18K | Talmudic sugya placement |

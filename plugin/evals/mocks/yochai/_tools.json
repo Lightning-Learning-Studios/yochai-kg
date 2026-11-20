@@ -1,0 +1,496 @@
+{
+  "tools": [
+    {
+      "name": "search_passages",
+      "description": "Use this when the user asks what Jewish sources say about a topic, wants a source for an idea, or half remembers a quote. Searches by meaning across more than 1,000 texts and returns real passages in Hebrew and English with their reference, translation source and a link.",
+      "inputSchema": {
+        "properties": {
+          "query": {
+            "description": "A topic, question or phrase in English or Hebrew.",
+            "title": "Query",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. Limit the search to one text, by title, for example 'Mishneh Torah, Repentance' or 'Pirkei Avot'.",
+            "title": "Text"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How many passages to return. Default 6, maximum 12.",
+            "title": "Limit"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_passagesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_passage",
+      "description": "Use this when the user names a specific verse, chapter, Mishnah or Talmud page and wants to read or check it. Returns the exact text in Hebrew and English with a link. Accepts a single verse, a range such as 'Genesis 22:1-19', a whole chapter, or a Talmud page.",
+      "inputSchema": {
+        "properties": {
+          "reference": {
+            "description": "A passage reference such as 'Genesis 22:2', 'Psalms 23', 'Berakhot 2a', 'Pirkei Avot 1:14' or 'Rashi on Genesis 22:2'. An id returned by another tool also works.",
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference"
+        ],
+        "title": "get_passageArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_commentaries",
+      "description": "Use this when the user asks how the classical commentators read a verse or a Talmud passage, or asks for one commentator by name. Returns the commentators' own words and the list of every commentator available on that passage.",
+      "inputSchema": {
+        "properties": {
+          "reference": {
+            "description": "A passage reference such as 'Genesis 22:2', 'Psalms 23', 'Berakhot 2a', 'Pirkei Avot 1:14' or 'Rashi on Genesis 22:2'. An id returned by another tool also works.",
+            "title": "Reference",
+            "type": "string"
+          },
+          "commentator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. One commentator, for example 'Rashi' or 'Ramban'.",
+            "title": "Commentator"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How many notes to return. Default 8, maximum 20.",
+            "title": "Limit"
+          }
+        },
+        "required": [
+          "reference"
+        ],
+        "title": "get_commentariesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_cross_references",
+      "description": "Use this when the user wants to know where else a verse or passage is quoted, retold or applied: in Midrash, in the Talmud, in law codes or in later thought. Returns the linked passages with a short excerpt and a count of links by kind.",
+      "inputSchema": {
+        "properties": {
+          "reference": {
+            "description": "A passage reference such as 'Genesis 22:2', 'Psalms 23', 'Berakhot 2a', 'Pirkei Avot 1:14' or 'Rashi on Genesis 22:2'. An id returned by another tool also works.",
+            "title": "Reference",
+            "type": "string"
+          },
+          "kinds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. Kinds of link to keep, for example ['Midrash', 'Talmud', 'Halakhah'].",
+            "title": "Kinds"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How many links to return. Default 8, maximum 20.",
+            "title": "Limit"
+          }
+        },
+        "required": [
+          "reference"
+        ],
+        "title": "get_cross_referencesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_talmud_discussion",
+      "description": "Use this when the user is studying a page of Talmud and wants the shape of the argument: the question that drives it, each step in order with its speaker, and where it ends. Covers the Babylonian Talmud.",
+      "inputSchema": {
+        "properties": {
+          "reference": {
+            "description": "A Babylonian Talmud page such as 'Berakhot 2a', or a discussion id returned by this tool.",
+            "title": "Reference",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference"
+        ],
+        "title": "get_talmud_discussionArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "search_concepts",
+      "description": "Use this when the user wants to explore an idea in Jewish thought and the map of related ideas matters more than one quote. Returns matching concepts with a one-line definition and an id for the other concept tools.",
+      "inputSchema": {
+        "properties": {
+          "query": {
+            "description": "An idea or theme, for example 'repentance', 'free will' or 'saving a life'.",
+            "title": "Query",
+            "type": "string"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How many concepts to return. Default 8, maximum 20.",
+            "title": "Limit"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "search_conceptsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_concept",
+      "description": "Use this when a concept id is known and the user wants it explained. Returns the definition, the question the concept answers, its key insight, its historical span and the closest related concepts.",
+      "inputSchema": {
+        "properties": {
+          "concept_id": {
+            "description": "A concept id from search_concepts, for example 'cluster_123'.",
+            "title": "Concept Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "concept_id"
+        ],
+        "title": "get_conceptArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_related_concepts",
+      "description": "Use this when the user asks who disagrees with an idea, what develops it, or what it resembles. Returns concepts linked to the given one, each with the kind of link. Pass relation CONTRADICTS for opposing views.",
+      "inputSchema": {
+        "properties": {
+          "concept_id": {
+            "description": "A concept id from search_concepts, for example 'cluster_123'.",
+            "title": "Concept Id",
+            "type": "string"
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. One of DEVELOPS, CONTRADICTS, RESONATES, EXEMPLIFIES, APPLIES_TO, ADDRESSES, SHARES_METHOD, CONTEXTUALIZES, COMMENTARY.",
+            "title": "Relation"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How many concepts to return. Default 8, maximum 20.",
+            "title": "Limit"
+          }
+        },
+        "required": [
+          "concept_id"
+        ],
+        "title": "get_related_conceptsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_learning_path",
+      "description": "Use this when the user asks where to start, what to learn before a topic, or what to study next. Returns the concepts to learn first and the concepts this one leads to.",
+      "inputSchema": {
+        "properties": {
+          "concept_id": {
+            "description": "A concept id from search_concepts, for example 'cluster_123'.",
+            "title": "Concept Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "concept_id"
+        ],
+        "title": "get_learning_pathArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_concept_sources",
+      "description": "Use this when the user wants the primary texts behind a concept. Returns the passages that ground it, in Hebrew and English, drawn from different texts where possible.",
+      "inputSchema": {
+        "properties": {
+          "concept_id": {
+            "description": "A concept id from search_concepts, for example 'cluster_123'.",
+            "title": "Concept Id",
+            "type": "string"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How many passages to return. Default 5, maximum 10.",
+            "title": "Limit"
+          }
+        },
+        "required": [
+          "concept_id"
+        ],
+        "title": "get_concept_sourcesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "browse_themes",
+      "description": "Use this when the user wants an overview, asks what there is to learn, or wants to browse without a question in mind. Returns the 11 great themes of the tradition, then the groups inside a theme, then the concepts inside a group.",
+      "inputSchema": {
+        "properties": {
+          "theme_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. Leave empty for the 11 great themes. Pass an id from a previous call ('galaxy_03' or 'constellation_0042') to go one level down.",
+            "title": "Theme Id"
+          }
+        },
+        "title": "browse_themesArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_texts",
+      "description": "Use this when the user asks whether a book is in the library, what texts are available, or how a title is spelled here. Returns titles with author, era and category, and the count of texts in every category.",
+      "inputSchema": {
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. For example tanakh, mishnah, talmud_bavli, midrash_aggadah, halakhic_code, philosophy, kabbalah, hasidut, mussar, commentary, responsa, liturgy.",
+            "title": "Category"
+          },
+          "search": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. Words from a title or an author's name.",
+            "title": "Search"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How many texts to list. Default 40, maximum 80.",
+            "title": "Limit"
+          }
+        },
+        "title": "list_textsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_study_path",
+      "description": "Use this when the user wants to work through one text in order, or wants a course or reading plan built on a text. Returns the ordered steps of that text's study path: the idea of each step, a summary and its anchor quote.",
+      "inputSchema": {
+        "properties": {
+          "text": {
+            "description": "The title of a text, for example 'Pirkei Avot' or 'Mesillat Yesharim'.",
+            "title": "Text",
+            "type": "string"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. The step to start from. Default 1.",
+            "title": "Start"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "How many steps to return. Default 12, maximum 25.",
+            "title": "Limit"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "get_study_pathArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "get_jewish_calendar",
+      "description": "Use this when the user asks about this week's Torah portion, today's Daf Yomi page, the Hebrew date or an upcoming holiday. Returns all four for the given date, with references that get_passage accepts.",
+      "inputSchema": {
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. A civil date as YYYY-MM-DD. Default is today (UTC).",
+            "title": "Date"
+          },
+          "israel": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional. True for the reading schedule followed in Israel. Default false (the diaspora schedule).",
+            "title": "Israel"
+          }
+        },
+        "title": "get_jewish_calendarArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "list_skills",
+      "description": "Use this when the user asks what Yochai can do, asks for study methods, or names a method that may be a community skill. Returns the study skills on the shelf: the core Yochai skills and the community skills approved through Yochai Create, each with its author.",
+      "inputSchema": {
+        "properties": {},
+        "title": "list_skillsArguments",
+        "type": "object"
+      }
+    },
+    {
+      "name": "load_skill",
+      "description": "Use this when the user picks a study skill from the shelf. Returns the full text of that skill: a study method, with its author and licence.",
+      "inputSchema": {
+        "properties": {
+          "name": {
+            "description": "The skill name from list_skills, for example 'prepare-to-teach'.",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "load_skillArguments",
+        "type": "object"
+      }
+    }
+  ]
+}
