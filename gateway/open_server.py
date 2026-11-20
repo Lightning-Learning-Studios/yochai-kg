@@ -41,6 +41,7 @@ config.NEO4J_MAX_POOL = config.OPEN_NEO4J_MAX_POOL
 VERSION = "0.1.0"
 PAGES = Path(__file__).resolve().parent / "pages"
 ICON = Path(__file__).resolve().parent.parent / "plugin" / ".claude-plugin" / "icon.png"
+WIDGETS = Path(__file__).resolve().parent / "widgets"
 
 mcp = FastMCP(
     "yochai-jewish-texts",
@@ -63,10 +64,22 @@ mcp = FastMCP(
 _READ_ONLY = {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}
 _NO_AUTH = {"securitySchemes": [{"type": "noauth"}]}
 
+# The passage card: one HTML file that Claude, ChatGPT and other MCP Apps hosts show
+# beside the text answer of the three passage tools. Hosts without UI support ignore
+# these keys, and the tool results are the same with or without them.
+PASSAGE_CARD_URI = "ui://widget/passage-card.html"
+MCP_APP_MIME = "text/html;profile=mcp-app"          # MCP Apps (SEP-1865); ChatGPT reads the same type
+_PASSAGE_CARD = {
+    **_NO_AUTH,
+    "ui": {"resourceUri": PASSAGE_CARD_URI},           # MCP Apps standard key
+    "openai/outputTemplate": PASSAGE_CARD_URI,         # ChatGPT compatibility alias
+}
 
-def tool(name: str, title: str):
+
+def tool(name: str, title: str, card: bool = False):
     """Register a read-only tool with the annotations both directories require,
-    and turn internal failures into messages a person can act on."""
+    and turn internal failures into messages a person can act on. With card=True
+    the tool also names the passage card as its panel."""
 
     def wrap(fn):
         @functools.wraps(fn)
@@ -84,7 +97,7 @@ def tool(name: str, title: str):
                 raise ToolError("Yochai could not complete this request. Try again, or rephrase it.") from e
 
         return mcp.tool(name=name, title=title, annotations=ToolAnnotations(title=title, **_READ_ONLY),
-                        meta=_NO_AUTH, structured_output=True)(guarded)
+                        meta=_PASSAGE_CARD if card else _NO_AUTH, structured_output=True)(guarded)
 
     return wrap
 
@@ -95,7 +108,7 @@ Ref = Annotated[str, Field(description="A passage reference such as 'Genesis 22:
 ConceptId = Annotated[str, Field(description="A concept id from search_concepts, for example 'cluster_123'.")]
 
 
-@tool("search_passages", "Search Jewish texts")
+@tool("search_passages", "Search Jewish texts", card=True)
 async def search_passages(
     query: Annotated[str, Field(description="A topic, question or phrase in English or Hebrew.")],
     text: Annotated[str | None, Field(description="Optional. Limit the search to one text, by title, for example "
@@ -108,7 +121,7 @@ async def search_passages(
     return await T.search_passages(query, text, limit)
 
 
-@tool("get_passage", "Read a passage")
+@tool("get_passage", "Read a passage", card=True)
 async def get_passage(reference: Ref) -> M.PassageResult:
     """Use this when the user names a specific verse, chapter, Mishnah or Talmud page and wants to read or check
     it. Returns the exact text in Hebrew and English with a link. Accepts a single verse, a range such as
@@ -116,7 +129,7 @@ async def get_passage(reference: Ref) -> M.PassageResult:
     return await T.get_passage(reference)
 
 
-@tool("get_commentaries", "Read commentaries on a passage")
+@tool("get_commentaries", "Read commentaries on a passage", card=True)
 async def get_commentaries(
     reference: Ref,
     commentator: Annotated[str | None, Field(description="Optional. One commentator, for example 'Rashi' or 'Ramban'.")] = None,
@@ -262,6 +275,30 @@ async def load_skill(
     """Use this when the user picks a study skill from the shelf. Returns the full text of that skill: a study
     method, with its author and licence."""
     return await T.load_skill(name)
+
+
+# --- the passage card ---------------------------------------------------------------
+def _card_meta() -> dict[str, Any]:
+    app = config.APP_URL.rstrip("/")
+    return {
+        "ui": {"prefersBorder": True, "csp": {"connectDomains": [], "resourceDomains": []}},
+        "openai/widgetDescription": ("Shows the passage with Hebrew beside English, the translation credit and "
+                                     "a link to read it on yochai.wiki."),
+        # openExternal targets must be listed here; the standard ui.csp has no field for them.
+        "openai/widgetCSP": {"connect_domains": [], "resource_domains": [], "redirect_domains": [app]},
+    }
+
+
+@functools.lru_cache(maxsize=1)
+def passage_card_html() -> str:
+    return (WIDGETS / "passage-card.html").read_text(encoding="utf-8")
+
+
+@mcp.resource(PASSAGE_CARD_URI, name="passage-card", title="Passage card",
+              description="Shows a passage in Hebrew and English with its reference, translation credit and link.",
+              mime_type=MCP_APP_MIME, meta=_card_meta())
+def passage_card() -> str:
+    return passage_card_html()
 
 
 # --- public pages -----------------------------------------------------------------
