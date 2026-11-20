@@ -339,6 +339,8 @@ def _skill_record(skill, base: str) -> dict[str, Any]:
 @mcp.custom_route("/skills.json", methods=["GET"], include_in_schema=False)
 async def skills_feed(request: Request) -> Response:
     base = config.OPEN_PUBLIC_URL or str(request.base_url).rstrip("/")
+    if request.headers.get("x-forwarded-proto") == "https" and base.startswith("http://"):
+        base = "https://" + base[len("http://"):]      # behind the hosting proxy the inner request is plain http
     skills = sorted(T._shelf().values(), key=lambda s: (s.kind != "core", s.name))
     return JSONResponse({"count": len(skills), "skills": [_skill_record(s, base) for s in skills]},
                         headers=_FEED_HEADERS)
