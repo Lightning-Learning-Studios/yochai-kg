@@ -29,6 +29,24 @@ All of it is reachable in two ways: **curated tools** for the common paths, and 
 
 ---
 
+## Two doors into the same library
+
+| Door | For whom | Sign-in | What it offers |
+| --- | --- | --- | --- |
+| **Yochai: Jewish Texts** (the plugin) | Anyone who uses Claude or ChatGPT | None | 16 study tools, 9 study skills and a shelf of community skills. See [`plugin/`](./plugin/README.md). |
+| **The developer gateway** (below) | Builders and researchers | A free key | Every graph tool, plus `run_cypher` for free traversal. |
+
+To add the plugin in Claude Code:
+
+```
+/plugin marketplace add Lightning-Learning-Studios/yochai-kg
+/plugin install yochai-jewish-texts@yochai
+```
+
+To try it before you install anything, see [Test it yourself](./docs/plugin/test-it-yourself.md).
+
+---
+
 ## Get connected in 2 minutes
 
 You need two things: a (free) API key, and an MCP client. The example below uses **Claude Desktop**, but any MCP-capable agent works (Claude API, Cursor, your own).

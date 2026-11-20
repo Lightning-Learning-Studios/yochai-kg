@@ -1,0 +1,58 @@
+name: Plugin evals
+
+# Runs the scripted test conversations in plugin/evals with real model calls.
+# Started by hand, because each full run costs money on the Anthropic account.
+#
+# Setup, once: repository secret ANTHROPIC_API_KEY.
+
+on:
+  workflow_dispatch:
+    inputs:
+      case:
+        description: "One case folder name, or empty for all cases"
+        type: string
+        default: ""
+      runs:
+        description: "Runs per case"
+        type: string
+        default: "1"
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Stop when the key is not set
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "Set the repository secret ANTHROPIC_API_KEY to run the evals."
+            exit 1
+          fi
+      - name: Run the evals
+        env:
+          CASE: ${{ inputs.case }}
+          RUNS: ${{ inputs.runs }}
+        run: |
+          if [ -n "$CASE" ]; then
+            claude plugin eval ./plugin --case "$CASE" --runs "$RUNS" --judge-model sonnet --no-publish
+          else
+            claude plugin eval ./plugin --runs "$RUNS" --judge-model sonnet --no-publish
+          fi
+      - name: Keep the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-eval-results
+          path: plugin/evals/results
+          if-no-files-found: ignore

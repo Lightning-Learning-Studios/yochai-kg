@@ -21,6 +21,8 @@ jobs:
         run: ruff check .
       - name: Test
         run: pytest -q
+      - name: Plugin documents match the server
+        run: python scripts/sync_plugin_docs.py --check
       - name: Validate submitted-texts examples
         run: |
           pip install pyyaml
@@ -29,3 +31,19 @@ jobs:
           else
             echo "no submissions to validate"
           fi
+
+  plugin:
+    # Checks the plugin package the way the Claude directory does.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Validate the plugin
+        run: |
+          claude plugin validate --strict plugin
+          claude plugin validate --strict --profile directory plugin
+          claude plugin validate --strict .
