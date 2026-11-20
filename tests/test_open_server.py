@@ -264,6 +264,23 @@ def test_public_pages(client, path, needle):
     assert "DRAFT" not in r.text                           # review notes stay out of the published page
 
 
+def test_public_skills_feed_matches_the_shelf(client):
+    feed = client.get("/skills.json")
+    assert feed.status_code == 200 and feed.headers["access-control-allow-origin"] == "*"
+    data = feed.json()
+    names = [s["name"] for s in data["skills"]]
+    assert data["count"] == len(names) >= 9 and "weekly-portion" in names
+    assert names == [s["name"] for s in call(client, "list_skills")["structuredContent"]["skills"]]
+    for s in data["skills"]:
+        assert s["kind"] in ("core", "community") and s["description"]
+        assert s["url"].endswith(f"/skills/{s['name']}.md") and "/SKILL.md" in s["source"]
+    text = client.get("/skills/weekly-portion.md")
+    assert text.status_code == 200 and "text/markdown" in text.headers["content-type"]
+    assert "get_jewish_calendar" in text.text and not text.text.startswith("---")
+    assert client.get("/skills/hasidic-lens.md").status_code == 404      # held skills are not served
+    assert client.get("/skills/..%2Fsecret.md").status_code == 404
+
+
 def test_health_icon_and_hidden_stats(client):
     assert client.get("/healthz").json()["ok"] is True
     assert client.get("/icon.png").headers["content-type"] == "image/png"

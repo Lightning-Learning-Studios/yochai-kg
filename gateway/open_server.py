@@ -316,6 +316,42 @@ async def icon(_: Request) -> Response:
     return Response(ICON.read_bytes(), media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
 
 
+# --- the public skills feed -----------------------------------------------------------
+# The same shelf the assistants read, as plain web addresses. Yochai Create shows its
+# community skills from this feed, so this repository is the one source for both.
+_FEED_HEADERS = {"Cache-Control": "public, max-age=300", "Access-Control-Allow-Origin": "*"}
+_REPO_TREE = "https://github.com/Lightning-Learning-Studios/yochai-kg/tree/main"
+
+
+def _skill_record(skill, base: str) -> dict[str, Any]:
+    folder = "plugin/skills" if skill.kind == "core" else "shelf/community"
+    return {
+        "name": skill.name,
+        "kind": skill.kind,
+        "description": skill.description,
+        "author": skill.author or None,
+        "licence": skill.licence or None,
+        "url": f"{base}/skills/{skill.name}.md",
+        "source": f"{_REPO_TREE}/{folder}/{skill.name}/SKILL.md",
+    }
+
+
+@mcp.custom_route("/skills.json", methods=["GET"], include_in_schema=False)
+async def skills_feed(request: Request) -> Response:
+    base = config.OPEN_PUBLIC_URL or str(request.base_url).rstrip("/")
+    skills = sorted(T._shelf().values(), key=lambda s: (s.kind != "core", s.name))
+    return JSONResponse({"count": len(skills), "skills": [_skill_record(s, base) for s in skills]},
+                        headers=_FEED_HEADERS)
+
+
+@mcp.custom_route("/skills/{name}.md", methods=["GET"], include_in_schema=False)
+async def skill_text(request: Request) -> Response:
+    skill = T._shelf().get(request.path_params["name"].lower())
+    if skill is None:
+        return PlainTextResponse("No skill with that name is on the shelf.", status_code=404, headers=_FEED_HEADERS)
+    return PlainTextResponse(skill.body + "\n", media_type="text/markdown; charset=utf-8", headers=_FEED_HEADERS)
+
+
 @mcp.custom_route("/healthz", methods=["GET"], include_in_schema=False)
 async def healthz(_: Request) -> Response:
     return JSONResponse({"ok": True, "server": "yochai-jewish-texts", "version": VERSION})

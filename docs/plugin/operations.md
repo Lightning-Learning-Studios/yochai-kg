@@ -72,6 +72,7 @@ Claude and ChatGPT send requests from shared addresses on behalf of many people.
 | --- | --- |
 | `/mcp` | The server that assistants connect to |
 | `/` , `/privacy`, `/terms`, `/support` | Public pages. The text is in `gateway/pages/`. |
+| `/skills.json`, `/skills/<name>.md` | The public skills feed. Yochai Create reads its community list from here. |
 | `/healthz` | Health check |
 | `/.well-known/openai-apps-challenge` | Shows the ChatGPT verification token |
 | `/stats` | Usage counts for today. Hidden unless `OPEN_STATS_TOKEN` is set. |

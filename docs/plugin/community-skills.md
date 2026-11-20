@@ -13,6 +13,40 @@ This page explains the path, what you must check, and how to take a skill down.
 
 The robot cannot merge. A skill never reaches users without a person's decision.
 
+## One shelf, two ways in, two places it shows
+
+This repository is the one home of community skills. The folder `shelf/community/` is the list.
+
+| Way in | Who it suits | What happens |
+| --- | --- | --- |
+| Yochai Create | Anyone | The author writes the skill in Yochai and ticks the plugin box. The robot opens the pull request. |
+| A direct pull request | People who use GitHub | The author adds one folder with one `SKILL.md` file under `shelf/community/`. The same safety check runs. A person merges. |
+
+| Place it shows | How |
+| --- | --- |
+| The plugin, in Claude and ChatGPT | The tools `list_skills` and `load_skill` |
+| Any website, including the community list in Yochai Create | The public feed below |
+
+The feed is two web addresses on the plugin server. Both need no sign-in.
+
+| Address | What it returns |
+| --- | --- |
+| `/skills.json` | Every skill on the shelf: name, kind, description, author, licence, and links to the text and to the file in this repository |
+| `/skills/<name>.md` | The text of one skill |
+
+A skill in a direct pull request needs this header at the top of its `SKILL.md`:
+
+```text
+---
+name: my-skill-name
+description: What the skill does and when to use it.
+author: Your Name
+license: CC BY 4.0
+---
+```
+
+To invite an author, send [invite-authors.md](./invite-authors.md).
+
 ## The four gates
 
 A skill must pass all four gates, in this order.
