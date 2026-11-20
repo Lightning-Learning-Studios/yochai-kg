@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Passage card preview</title>
+<!--
+  Local harness for passage-card.html. It is not served by the MCP server.
+
+  Run from the repository root:
+      python -m http.server 8765 --directory gateway/widgets
+  then open http://127.0.0.1:8765/preview.html
+
+  Query options (all optional):
+      protocol=mcp|openai     which host to imitate (default mcp)
+      theme=light|dark|system the theme the host reports (default system)
+      width=320|800|...       the iframe width in pixels (default 800)
+      only=verse,talmud,...   which samples to show
+-->
+<style>
+  :root { color-scheme: light dark; --bg: #f2f2f2; --fg: #1a1a1a; --panel: #ffffff; --line: #d0d0d0; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #121212; --fg: #eeeeee; --panel: #1e1e1e; --line: #3a3a3a; }
+  }
+  :root[data-theme="dark"] { color-scheme: dark; --bg: #121212; --fg: #eeeeee; --panel: #1e1e1e; --line: #3a3a3a; }
+  :root[data-theme="light"] { color-scheme: light; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.4 system-ui, sans-serif; }
+  form { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 12px 16px;
+         border-bottom: 1px solid var(--line); background: var(--panel); }
+  .samples { padding: 16px; display: grid; gap: 20px; }
+  figure { margin: 0; }
+  figcaption { font-size: 12px; opacity: 0.75; margin-bottom: 6px; }
+  iframe { display: block; border: 1px solid var(--line); border-radius: 12px; background: transparent;
+           max-width: 100%; height: 120px; }
+  #log { margin: 0 16px 16px; padding: 8px; background: var(--panel); border: 1px solid var(--line);
+         font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; max-height: 160px; overflow: auto; }
+</style>
+</head>
+<body>
+<form id="controls">
+  <label>Host <select name="protocol"><option value="mcp">MCP Apps (Claude)</option>
+    <option value="openai">ChatGPT (window.openai)</option></select></label>
+  <label>Theme <select name="theme"><option value="system">System</option><option value="light">Light</option>
+    <option value="dark">Dark</option></select></label>
+  <label>Width <select name="width"><option>320</option><option>400</option><option>600</option>
+    <option selected>800</option></select></label>
+  <button type="submit">Apply</button>
+</form>
+<div class="samples" id="samples"></div>
+<pre id="log" aria-label="Messages from the cards"></pre>
+<script>
+(function () {
+  "use strict";
+  var APP = "https://www.yochai.wiki";
+  var TAG = "?utm_source=yochai-plugin&utm_medium=mcp";
+  var SEFARIA = "English from the Sefaria library (sefaria.org), shown under Yochai's display licence.";
+  var DICTA = "English is a machine translation by Dicta (dicta.org.il). Check it against the Hebrew.";
+
+  var SAMPLES = {
+    verse: { label: "get_passage: one verse", data: {
+      found: true, reference: "Genesis 22:2", text_title: "Genesis", category: "tanakh",
+      translation_source: SEFARIA, link: APP + "/p/bereishit_22_2" + TAG, truncated: false,
+      segments: [{ reference: "Genesis 22:2", id: "bereishit_22_2",
+        hebrew: "וַיֹּ֡אמֶר קַח־נָ֠א אֶת־בִּנְךָ֨ אֶת־יְחִֽידְךָ֤ אֲשֶׁר־אָהַ֙בְתָּ֙ אֶת־יִצְחָ֔ק וְלֶךְ־לְךָ֔ אֶל־אֶ֖רֶץ הַמֹּרִיָּ֑ה וְהַעֲלֵ֤הוּ שָׁם֙ לְעֹלָ֔ה עַ֚ל אַחַ֣ד הֶֽהָרִ֔ים אֲשֶׁ֖ר אֹמַ֥ר אֵלֶֽיךָ׃",
+        english: "And He said, “Take your son, your favored one, Isaac, whom you love, and go to the land of Moriah. Offer him there as a burnt offering on one of the heights that I will point out to you.”" }]
+    } },
+    talmud: { label: "get_passage: a Talmud page with several segments", data: {
+      found: true, reference: "Berakhot 2a", text_title: "Berakhot", category: "talmud_bavli",
+      translation_source: DICTA, link: APP + "/p/bavli-berakhot_3_1" + TAG, truncated: true,
+      continue_from: "Berakhot 2a:4",
+      segments: [
+        { reference: "Berakhot 2a:1", id: "bavli-berakhot_3_1",
+          hebrew: "מֵאֵימָתַי קוֹרִין אֶת שְׁמַע בְּעַרְבִין? מִשָּׁעָה שֶׁהַכֹּהֲנִים נִכְנָסִים לֶאֱכוֹל בִּתְרוּמָתָן, עַד סוֹף הָאַשְׁמוּרָה הָרִאשׁוֹנָה, דִּבְרֵי רַבִּי אֱלִיעֶזֶר.",
+          english: "From when may one recite Shema in the evening? From the time that the priests enter to eat their teruma, until the end of the first watch. These are the words of Rabbi Eliezer." },
+        { reference: "Berakhot 2a:2", id: "bavli-berakhot_3_2",
+          hebrew: "וַחֲכָמִים אוֹמְרִים: עַד חֲצוֹת. רַבָּן גַּמְלִיאֵל אוֹמֵר: עַד שֶׁיַּעֲלֶה עַמּוּד הַשַּׁחַר.",
+          english: "And the Rabbis say: Until midnight. Rabban Gamliel says: Until the dawn rises." },
+        { reference: "Berakhot 2a:3", id: "bavli-berakhot_3_3",
+          hebrew: "מַעֲשֶׂה וּבָאוּ בָּנָיו מִבֵּית הַמִּשְׁתֶּה, אָמְרוּ לוֹ: לֹא קָרִינוּ אֶת שְׁמַע.",
+          english: "It once happened that his sons came home from a wedding feast. They said to him: We did not recite Shema." }
+      ]
+    } },
+    missing: { label: "get_passage: not found", data: {
+      found: false, reference: "Genesis 99:1", segments: [], truncated: false,
+      message: "No passage found for 'Genesis 99:1'. Genesis has 50 chapters.", suggestions: []
+    } },
+    search: { label: "search_passages: a list of cards", data: {
+      query: "repentance", count: 2, suggestions: [], passages: [
+        { reference: "Mishneh Torah, Repentance 2:2", id: "mishneh-torah-repentance_2_2",
+          text_title: "Mishneh Torah, Repentance", author: "Maimonides",
+          hebrew: "וּמַה הִיא הַתְּשׁוּבָה? הוּא שֶׁיַּעֲזֹב הַחוֹטֵא חֶטְאוֹ וִיסִירוֹ מִמַּחֲשַׁבְתּוֹ וְיִגְמֹר בְּלִבּוֹ שֶׁלֹּא יַעֲשֵׂהוּ עוֹד.",
+          english: "What is repentance? That the sinner abandon the sin, remove it from his thoughts, and resolve in his heart never to do it again.",
+          translation_source: SEFARIA, link: APP + "/p/mishneh-torah-repentance_2_2" + TAG },
+        { reference: "Pirkei Avot 2:10", id: "pirkei-avot_2_10", text_title: "Pirkei Avot",
+          hebrew: "וְשׁוּב יוֹם אֶחָד לִפְנֵי מִיתָתְךָ.",
+          english: "Repent one day before your death.",
+          translation_source: SEFARIA, link: APP + "/p/pirkei-avot_2_10" + TAG }
+      ]
+    } },
+    commentary: { label: "get_commentaries: a list of cards", data: {
+      found: true, reference: "Genesis 22:2", count: 1, commentators: ["Rashi", "Ramban", "Ibn Ezra", "Sforno"],
+      commentaries: [
+        { reference: "Rashi on Genesis 22:2:1", id: "rashi-on-genesis_22_2_1", text_title: "Rashi on Genesis",
+          author: "Rashi", hebrew: "קַח נָא. אֵין נָא אֶלָּא לְשׁוֹן בַּקָּשָׁה.",
+          english: "Take, please. The word na is always an expression of request.",
+          translation_source: SEFARIA, link: APP + "/p/rashi-on-genesis_22_2_1" + TAG }
+      ]
+    } }
+  };
+
+  var params = new URLSearchParams(location.search);
+  var protocol = params.get("protocol") === "openai" ? "openai" : "mcp";
+  var theme = ["light", "dark"].indexOf(params.get("theme")) >= 0 ? params.get("theme") : "system";
+  var width = parseInt(params.get("width") || "800", 10) || 800;
+  var only = (params.get("only") || "verse,talmud,missing,search,commentary").split(",");
+
+  var form = document.getElementById("controls");
+  form.protocol.value = protocol; form.theme.value = theme; form.width.value = String(width);
+  if (theme !== "system") document.documentElement.setAttribute("data-theme", theme);
+
+  var log = document.getElementById("log");
+  function note(line) { log.textContent += line + "\n"; }
+
+  var effectiveTheme = theme !== "system" ? theme
+    : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+
+  function toolResult(data) {
+    return { content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: data, isError: false };
+  }
+
+  var holder = document.getElementById("samples");
+  only.forEach(function (key) {
+    var sample = SAMPLES[key];
+    if (!sample) return;
+    var fig = document.createElement("figure");
+    var cap = document.createElement("figcaption");
+    cap.textContent = sample.label + " (" + protocol + ", " + theme + ", " + width + " px)";
+    var frame = document.createElement("iframe");
+    frame.title = sample.label;
+    frame.style.width = width + "px";
+    frame.dataset.sample = key;
+    fig.appendChild(cap); fig.appendChild(frame); holder.appendChild(fig);
+
+    if (protocol === "openai") {
+      frame.addEventListener("load", function () {
+        var w = frame.contentWindow;
+        w.openai = {
+          theme: effectiveTheme, displayMode: "inline", locale: "en-US", toolInput: {}, toolOutput: sample.data,
+          openExternal: function (o) { note("[" + key + "] openai.openExternal " + o.href); },
+          notifyIntrinsicHeight: function (h) { frame.style.height = Math.ceil(h) + "px"; }
+        };
+        w.dispatchEvent(new w.CustomEvent("openai:set_globals",
+          { detail: { globals: { theme: effectiveTheme, toolOutput: sample.data } } }));
+      });
+    }
+    frame.src = "passage-card.html";
+  });
+
+  // The host side of the MCP Apps bridge.
+  window.addEventListener("message", function (event) {
+    var frames = holder.querySelectorAll("iframe");
+    var frame = null;
+    for (var i = 0; i < frames.length; i++) if (frames[i].contentWindow === event.source) frame = frames[i];
+    if (!frame) return;
+    var msg = event.data;
+    if (!msg || msg.jsonrpc !== "2.0") return;
+    var key = frame.dataset.sample;
+    function reply(result) { event.source.postMessage({ jsonrpc: "2.0", id: msg.id, result: result }, "*"); }
+
+    if (protocol !== "mcp") {
+      note("[" + key + "] ignored " + msg.method + " (ChatGPT mode)");
+      return;
+    }
+    switch (msg.method) {
+      case "ui/initialize":
+        note("[" + key + "] ui/initialize from " + (msg.params && msg.params.appInfo && msg.params.appInfo.name));
+        var ctx = { displayMode: "inline", containerDimensions: { width: width, maxHeight: 2000 } };
+        if (theme !== "system") ctx.theme = theme;
+        reply({ protocolVersion: "2026-01-26", hostInfo: { name: "preview-harness", version: "1" },
+                hostCapabilities: { openLinks: {} }, hostContext: ctx });
+        break;
+      case "ui/notifications/initialized":
+        event.source.postMessage({ jsonrpc: "2.0", method: "ui/notifications/tool-input", params: { arguments: {} } }, "*");
+        event.source.postMessage({ jsonrpc: "2.0", method: "ui/notifications/tool-result",
+                                   params: toolResult(SAMPLES[key].data) }, "*");
+        break;
+      case "ui/notifications/size-changed":
+        frame.style.height = Math.ceil(msg.params.height) + "px";
+        break;
+      case "ui/open-link":
+        note("[" + key + "] ui/open-link " + msg.params.url);
+        reply({});
+        break;
+      default:
+        note("[" + key + "] " + msg.method);
+        if (msg.id !== undefined) reply({});
+    }
+  });
+})();
+</script>
+</body>
+</html>

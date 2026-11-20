@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Yochai passage</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --paper: #fbf8f1;
+  --ink: #22201c;
+  --muted: #5f594d;
+  --rule: #e2d9c5;
+  --card: #ffffff;
+  --accent: #7a4b12;
+  --accent-ink: #ffffff;
+  --focus: #1d5fbf;
+  --bg: var(--color-background-primary, var(--paper));
+  --fg: var(--color-text-primary, var(--ink));
+  --fg2: var(--color-text-secondary, var(--muted));
+  --line: var(--color-border-primary, var(--rule));
+  --sans: var(--font-sans, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  --serif: Georgia, "Times New Roman", serif;
+  --hebrew: "SBL Hebrew", "Taamey Frank CLM", "Frank Ruehl CLM", "Noto Serif Hebrew", "New Peninim MT",
+    "David", "Narkisim", "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1b1a17; --ink: #ece7da; --muted: #b3ab99; --rule: #3d3a33; --card: #24221e;
+    --accent: #e0b574; --accent-ink: #1b1a17; --focus: #8ab4ff;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #1b1a17; --ink: #ece7da; --muted: #b3ab99; --rule: #3d3a33; --card: #24221e;
+  --accent: #e0b574; --accent-ink: #1b1a17; --focus: #8ab4ff;
+}
+:root[data-theme="light"] { color-scheme: light; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 15px/1.55 var(--sans);
+  -webkit-text-size-adjust: 100%;
+}
+main { padding: 16px; max-width: 960px; margin: 0 auto; }
+header { margin: 0 0 12px; }
+h1 {
+  font: 600 1.25rem/1.3 var(--sans);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+h2 {
+  font: 600 1.05rem/1.3 var(--sans);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.sub { color: var(--fg2); font-size: 0.85rem; margin: 2px 0 0; }
+
+.rows { border-top: 1px solid var(--line); }
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 24px;
+  row-gap: 6px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.row .label {
+  grid-column: 1 / -1;
+  order: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--fg2);
+}
+.he {
+  order: 2;
+  font-family: var(--hebrew);
+  font-size: 1.3rem;
+  line-height: 1.75;
+  text-align: right;
+  unicode-bidi: isolate;
+  overflow-wrap: anywhere;
+}
+.en {
+  order: 1;
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.row.single .he, .row.single .en { grid-column: 1 / -1; }
+
+.cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.card .row { border-bottom: 0; padding: 10px 0 4px; }
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 12px;
+}
+.credit { color: var(--fg2); font-size: 0.78rem; margin: 0; flex: 1 1 200px; }
+.note { color: var(--fg2); font-size: 0.85rem; margin: 10px 0 0; }
+.message { margin: 8px 0 0; font-size: 0.95rem; }
+
+a.open {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 600 0.85rem/1.2 var(--sans);
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.open:hover { filter: brightness(1.08); }
+a.open:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+a.open.small { min-height: 32px; padding: 4px 12px; font-size: 0.8rem; }
+
+.empty { color: var(--fg2); padding: 8px 0; }
+[hidden] { display: none !important; }
+
+@media (max-width: 560px) {
+  main { padding: 12px; }
+  .row { grid-template-columns: minmax(0, 1fr); }
+  .he { order: 1; font-size: 1.2rem; }
+  .en { order: 2; }
+}
+</style>
+</head>
+<body>
+<main id="root" aria-live="polite">
+  <p class="empty" id="waiting">Loading the passage.</p>
+</main>
+<script>
+(function () {
+  "use strict";
+
+  var root = document.getElementById("root");
+  var lastKey = null;
+  var bridge = { ready: false, nextId: 1, pending: {} };
+  var parentWin = window.parent && window.parent !== window ? window.parent : null;
+
+  // ---------- small DOM helpers: text only, never markup from data ----------
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null && text !== "") node.textContent = String(text);
+    return node;
+  }
+  function str(v) { return typeof v === "string" ? v.trim() : ""; }
+  function safeLink(href) {
+    if (typeof href !== "string" || !href) return "";
+    try {
+      var u = new URL(href);
+      return u.protocol === "https:" ? u.href : "";
+    } catch (e) { return ""; }
+  }
+
+  // ---------- opening links through the host ----------
+  function openLink(href) {
+    var openai = window.openai;
+    if (openai && typeof openai.openExternal === "function") {
+      try { openai.openExternal({ href: href }); return true; } catch (e) { /* fall through */ }
+    }
+    if (bridge.ready) {
+      request("ui/open-link", { url: href }).catch(function () {
+        window.open(href, "_blank", "noopener");
+      });
+      return true;
+    }
+    return false;
+  }
+  function linkButton(href, label, small) {
+    var safe = safeLink(href);
+    if (!safe) return null;
+    var a = el("a", small ? "open small" : "open", label);
+    a.setAttribute("href", safe);
+    a.setAttribute("target", "_blank");
+    a.setAttribute("rel", "noopener noreferrer");
+    a.addEventListener("click", function (ev) {
+      if (openLink(safe)) ev.preventDefault();
+    });
+    return a;
+  }
+
+  // ---------- rendering ----------
+  function textRow(hebrew, english, label) {
+    var he = str(hebrew), en = str(english), lb = str(label);
+    if (!he && !en) return null;
+    var row = el("div", "row");
+    if (lb) { row.className += " has-label"; row.appendChild(el("div", "label", lb)); }
+    if (!he || !en) row.className += " single";
+    if (en) {
+      var e = el("p", "en", en);
+      e.setAttribute("lang", "en");
+      e.setAttribute("dir", "ltr");
+      e.style.margin = "0";
+      row.appendChild(e);
+    }
+    if (he) {
+      var h = el("p", "he", he);
+      h.setAttribute("lang", "he");
+      h.setAttribute("dir", "rtl");
+      h.style.margin = "0";
+      row.appendChild(h);
+    }
+    return row;
+  }
+
+  // "Genesis" under "Genesis 22:2", or "Rashi" after "Rashi on Genesis", says nothing new.
+  function byline(title, author, reference) {
+    var t = str(title), a = str(author), r = str(reference);
+    if (t && r.toLowerCase().indexOf(t.toLowerCase()) === 0) t = "";
+    if (a && (t || r).toLowerCase().indexOf(a.toLowerCase()) >= 0) a = "";
+    return subtitle([t, a]);
+  }
+
+  function subtitle(parts) {
+    var kept = [];
+    for (var i = 0; i < parts.length; i++) if (str(parts[i])) kept.push(str(parts[i]));
+    return kept.length ? el("p", "sub", kept.join(" · ")) : null;
+  }
+
+  function credit(source) {
+    var s = str(source);
+    return el("p", "credit", s);
+  }
+
+  function renderPassage(d) {
+    var frag = document.createDocumentFragment();
+    var header = el("header");
+    header.appendChild(el("h1", null, str(d.reference) || "Passage"));
+    var sub = byline(d.text_title, d.author, d.reference);
+    if (sub) header.appendChild(sub);
+    frag.appendChild(header);
+
+    if (d.found === false) {
+      frag.appendChild(el("p", "message", str(d.message) || "No passage was found for this reference."));
+      appendSuggestions(frag, d.suggestions);
+      return frag;
+    }
+
+    var segs = Array.isArray(d.segments) ? d.segments : [];
+    var rows = el("div", "rows");
+    var many = segs.length > 1;
+    for (var i = 0; i < segs.length; i++) {
+      var s = segs[i] || {};
+      var r = textRow(s.hebrew, s.english, many ? s.reference : "");
+      if (r) rows.appendChild(r);
+    }
+    if (rows.childNodes.length) frag.appendChild(rows);
+    else frag.appendChild(el("p", "message", str(d.message) || "This passage has no text to show."));
+
+    if (d.truncated) {
+      var more = "The passage was cut to fit.";
+      if (str(d.continue_from)) more += " Ask for " + str(d.continue_from) + " to read on.";
+      frag.appendChild(el("p", "note", more));
+    } else if (str(d.message)) {
+      frag.appendChild(el("p", "note", str(d.message)));
+    }
+
+    var foot = el("div", "foot");
+    foot.appendChild(credit(d.translation_source));
+    var a = linkButton(d.link, "Open in Yochai", false);
+    if (a) foot.appendChild(a);
+    frag.appendChild(foot);
+    return frag;
+  }
+
+  function appendSuggestions(frag, list) {
+    if (!Array.isArray(list) || !list.length) return;
+    var kept = [];
+    for (var i = 0; i < list.length && kept.length < 6; i++) if (str(list[i])) kept.push(str(list[i]));
+    if (kept.length) frag.appendChild(el("p", "note", "Try: " + kept.join(", ")));
+  }
+
+  function renderList(d, items, heading, sub) {
+    var frag = document.createDocumentFragment();
+    var header = el("header");
+    header.appendChild(el("h1", null, heading));
+    if (sub) header.appendChild(el("p", "sub", sub));
+    frag.appendChild(header);
+
+    if (!items.length) {
+      frag.appendChild(el("p", "message", str(d.message) || "Nothing was found."));
+      appendSuggestions(frag, d.suggestions);
+      return frag;
+    }
+    var ul = el("ul", "cards");
+    for (var i = 0; i < items.length; i++) {
+      var p = items[i] || {};
+      var li = el("li", "card");
+      var art = el("article");
+      art.appendChild(el("h2", null, str(p.reference) || "Passage"));
+      var st = byline(p.text_title, p.author, p.reference);
+      if (st) art.appendChild(st);
+      var r = textRow(p.hebrew, p.english, "");
+      if (r) art.appendChild(r);
+      if (p.truncated) art.appendChild(el("p", "note", "Shortened to fit."));
+      var foot = el("div", "foot");
+      foot.appendChild(credit(p.translation_source));
+      var a = linkButton(p.link, "Open in Yochai", true);
+      if (a) {
+        a.setAttribute("aria-label", "Open " + (str(p.reference) || "this passage") + " in Yochai");
+        foot.appendChild(a);
+      }
+      art.appendChild(foot);
+      li.appendChild(art);
+      ul.appendChild(li);
+    }
+    frag.appendChild(ul);
+    if (str(d.message)) frag.appendChild(el("p", "note", str(d.message)));
+    return frag;
+  }
+
+  function build(d) {
+    if (Array.isArray(d.passages)) {
+      return renderList(d, d.passages, str(d.query) ? "Sources on: " + str(d.query) : "Sources",
+                        str(d.text) ? "In " + str(d.text) : "");
+    }
+    if (Array.isArray(d.commentaries)) {
+      var who = Array.isArray(d.commentators) ? d.commentators.filter(function (c) { return str(c); }) : [];
+      var sub = who.length ? "Available: " + who.slice(0, 12).join(", ") + (who.length > 12 ? " and more" : "") : "";
+      if (d.found === false) return renderList(d, [], "Commentaries on " + (str(d.reference) || "this passage"), "");
+      return renderList(d, d.commentaries, "Commentaries on " + (str(d.reference) || "this passage"), sub);
+    }
+    if (Array.isArray(d.segments) || typeof d.found === "boolean") return renderPassage(d);
+    return null;
+  }
+
+  function render(data) {
+    if (!data || typeof data !== "object") return;
+    var key;
+    try { key = JSON.stringify(data); } catch (e) { key = null; }
+    if (key !== null && key === lastKey) return;
+    var frag = build(data);
+    if (!frag) return;
+    lastKey = key;
+    while (root.firstChild) root.removeChild(root.firstChild);
+    root.appendChild(frag);
+    reportSize();
+  }
+
+  function fromToolResult(result) {
+    if (!result || typeof result !== "object") return null;
+    if (result.structuredContent && typeof result.structuredContent === "object") return result.structuredContent;
+    var content = Array.isArray(result.content) ? result.content : [];
+    for (var i = 0; i < content.length; i++) {
+      if (content[i] && content[i].type === "text" && typeof content[i].text === "string") {
+        try {
+          var parsed = JSON.parse(content[i].text);
+          if (parsed && typeof parsed === "object") return parsed;
+        } catch (e) { /* plain text: not ours to render */ }
+      }
+    }
+    return null;
+  }
+
+  function showError(message) {
+    while (root.firstChild) root.removeChild(root.firstChild);
+    root.appendChild(el("p", "message", message));
+    reportSize();
+  }
+
+  // ---------- theme ----------
+  function setTheme(theme) {
+    if (theme === "light" || theme === "dark") document.documentElement.setAttribute("data-theme", theme);
+  }
+  var HOST_VARS = ["--color-background-primary", "--color-text-primary", "--color-text-secondary",
+                   "--color-border-primary", "--font-sans"];
+  function applyHostContext(ctx) {
+    if (!ctx || typeof ctx !== "object") return;
+    if (ctx.theme) setTheme(ctx.theme);
+    var vars = ctx.styles && ctx.styles.variables;
+    if (vars && typeof vars === "object") {
+      for (var i = 0; i < HOST_VARS.length; i++) {
+        var v = vars[HOST_VARS[i]];
+        if (typeof v === "string" && v && v.length < 200) document.documentElement.style.setProperty(HOST_VARS[i], v);
+      }
+    }
+  }
+
+  // ---------- size reporting ----------
+  var sizeTimer = null;
+  function reportSize() {
+    if (sizeTimer) return;
+    sizeTimer = setTimeout(function () {
+      sizeTimer = null;
+      // The body's own box, not the document scroll size: that never shrinks below the frame.
+      var box = document.body.getBoundingClientRect();
+      var h = Math.ceil(box.height);
+      var w = Math.ceil(box.width);
+      if (bridge.ready) notify("ui/notifications/size-changed", { width: w, height: h });
+      var openai = window.openai;
+      if (openai && typeof openai.notifyIntrinsicHeight === "function") {
+        try { openai.notifyIntrinsicHeight(h); } catch (e) { /* optional */ }
+      }
+    }, 30);
+  }
+  if (typeof ResizeObserver === "function") new ResizeObserver(reportSize).observe(document.body);
+
+  // ---------- MCP Apps bridge (JSON-RPC 2.0 over postMessage) ----------
+  function post(msg) { if (parentWin) parentWin.postMessage(msg, "*"); }
+  function notify(method, params) { post({ jsonrpc: "2.0", method: method, params: params || {} }); }
+  function request(method, params) {
+    return new Promise(function (resolve, reject) {
+      if (!parentWin) { reject(new Error("no host")); return; }
+      var id = "yc-" + bridge.nextId++;
+      bridge.pending[id] = { resolve: resolve, reject: reject };
+      post({ jsonrpc: "2.0", id: id, method: method, params: params || {} });
+    });
+  }
+
+  window.addEventListener("message", function (event) {
+    if (!parentWin || event.source !== parentWin) return;
+    var msg = event.data;
+    if (!msg || typeof msg !== "object" || msg.jsonrpc !== "2.0") return;
+
+    if (msg.id !== undefined && msg.id !== null && typeof msg.method !== "string") {
+      var waiting = bridge.pending[msg.id];
+      if (!waiting) return;
+      delete bridge.pending[msg.id];
+      if (msg.error) waiting.reject(msg.error); else waiting.resolve(msg.result);
+      return;
+    }
+    if (typeof msg.method !== "string") return;
+
+    switch (msg.method) {
+      case "ui/notifications/tool-result":
+        var data = fromToolResult(msg.params);
+        if (data) render(data);
+        else if (msg.params && msg.params.isError) {
+          showError("Yochai could not complete this request.");
+        }
+        break;
+      case "ui/notifications/tool-cancelled":
+        if (lastKey === null) showError("The request was cancelled.");
+        break;
+      case "ui/notifications/host-context-changed":
+        applyHostContext(msg.params);
+        break;
+      case "ui/resource-teardown":
+      case "ping":
+        if (msg.id !== undefined) post({ jsonrpc: "2.0", id: msg.id, result: {} });
+        break;
+      default:
+        if (msg.id !== undefined) {
+          post({ jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: "Method not found" } });
+        }
+    }
+  });
+
+  if (parentWin) {
+    request("ui/initialize", {
+      appInfo: { name: "yochai-passage-card", version: "1.0.0" },
+      appCapabilities: { availableDisplayModes: ["inline"] },
+      protocolVersion: "2026-01-26"
+    }).then(function (result) {
+      bridge.ready = true;
+      if (result && result.hostContext) applyHostContext(result.hostContext);
+      notify("ui/notifications/initialized", {});
+      reportSize();
+    }, function () { /* host without the MCP Apps bridge */ });
+  }
+
+  // ---------- ChatGPT globals (window.openai) ----------
+  function readOpenAi() {
+    var openai = window.openai;
+    if (!openai) return;
+    if (openai.theme) setTheme(openai.theme);
+    if (openai.toolOutput) render(openai.toolOutput);
+  }
+  window.addEventListener("openai:set_globals", function (event) {
+    var g = event && event.detail && event.detail.globals;
+    if (g && g.theme) setTheme(g.theme);
+    if (g && g.toolOutput) render(g.toolOutput);
+    else readOpenAi();
+  }, { passive: true });
+  readOpenAi();
+})();
+</script>
+</body>
+</html>

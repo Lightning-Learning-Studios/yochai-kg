@@ -76,6 +76,31 @@ Claude and ChatGPT send requests from shared addresses on behalf of many people.
 | `/.well-known/openai-apps-challenge` | Shows the ChatGPT verification token |
 | `/stats` | Usage counts for today. Hidden unless `OPEN_STATS_TOKEN` is set. |
 
+## The passage card
+
+The passage card is a small panel that shows a passage beside the text answer. It shows the reference as the heading. It shows the Hebrew and the English side by side, or the Hebrew above the English on a narrow screen. It shows the translation credit and an "Open in Yochai" button.
+
+Three tools show the card: `get_passage`, `search_passages` and `get_commentaries`. The other 13 tools show text only. The tool answers are the same with or without the card, so an assistant that cannot show panels still gets the full text.
+
+The card is one file, `gateway/widgets/passage-card.html`. It loads nothing from the internet. It uses the fonts that are already on the reader's device.
+
+| Host | How it finds the card |
+| --- | --- |
+| Claude and other MCP Apps hosts | The tool key `ui.resourceUri` |
+| ChatGPT | The same key, and the older key `openai/outputTemplate` |
+
+Both hosts read the same resource, `ui://widget/passage-card.html`, with the type `text/html;profile=mcp-app`.
+
+A directory listing with a panel gets a stricter review than a listing with text only. Each directory asks for 3 to 5 screenshots of the panel in use. ChatGPT also asks for a dedicated web address for the panel, the `ui.domain` setting. The server does not set it yet. Add it before you submit to ChatGPT.
+
+To see the card on your own computer, run this command from the repository root:
+
+```
+python -m http.server 8765 --directory gateway/widgets
+```
+
+Then open `http://127.0.0.1:8765/preview.html` in a browser. The preview page shows five sample answers in the card. Use the menus at the top to change the host, the theme and the width.
+
 ## What is counted
 
 The server counts calls per day, per tool and per assistant (Claude, ChatGPT, other). It counts new connections as `_session`. It stores no question, no result and no network address.

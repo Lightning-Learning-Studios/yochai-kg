@@ -69,6 +69,7 @@ def test_every_tool_meets_the_directory_rules(tools):
         assert len(t["description"]) <= 400, name
         assert t.get("outputSchema", {}).get("type") == "object", f"{name} has no output schema"
         assert t["_meta"]["securitySchemes"] == [{"type": "noauth"}], name
+        assert set(t["_meta"]) <= {"securitySchemes", "ui", "openai/outputTemplate"}, name   # UI keys: see test_passage_card
         assert t["inputSchema"]["type"] == "object"
         for prop, schema in t["inputSchema"].get("properties", {}).items():
             assert schema.get("description"), f"{name}.{prop} has no description"

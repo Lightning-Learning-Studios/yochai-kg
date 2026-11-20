@@ -27,7 +27,7 @@ yochai-open-server = "gateway.open_server:main"
 packages = ["gateway", "apikeys", "pipeline"]
 
 [tool.setuptools.package-data]
-gateway = ["pages/*.md"]
+gateway = ["pages/*.md", "widgets/*.html"]
 
 [tool.ruff]
 line-length = 120
