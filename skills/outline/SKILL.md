@@ -23,25 +23,37 @@ not a table of contents.
   layer and the order to climb.
 - `browse_constellation(constellation_id)` / `list_galaxies()` — the macro
   thematic neighborhood the topic sits in.
+- `get_corridors_for_text(text_slug)` / `get_corridor(corridor_id)` — a pre-built
+  learning sequence over a text, if one exists. Ordered modules, each with a concept,
+  domain, and anchor quote. Check this before building a path by hand.
+- `get_temporal_neighbors(canonical_id)` — historical order, as distinct from the
+  pedagogical order `get_prerequisites` gives. Use it when the learner wants to know
+  how an idea developed, not just what to read first.
 - `search_corpus(query, text_filter?)` — attach a real anchor text to each step.
 
 ## Method
 
 Sequence from the graph's prerequisite structure; ground each step in a passage.
 
-1. **Locate the concept.** `search_concepts(query="tzimtzum divine contraction")`
+1. **Check for an existing corridor.** If the topic maps onto one text, call
+   `get_corridors_for_text(text_slug="bereishit")` → `corridor_bereishit`, 71 modules.
+   `get_corridor(corridor_id="corridor_bereishit")` returns them ordered, each with a
+   `concept_name`, `domain`, and `anchor_quote`. A curated sequence beats one you
+   assemble from the DAG; adapt it rather than duplicating it. If no corridor exists,
+   build the path from step 2.
+2. **Locate the concept.** `search_concepts(query="tzimtzum divine contraction")`
    → pick the canonical id (e.g. `c_tzimtzum`). `get_concept(canonical_id="c_tzimtzum")`
    to read its definition and difficulty.
-2. **Pull the prerequisite DAG.** `get_prerequisites(canonical_id="c_tzimtzum")`
+3. **Pull the prerequisite DAG.** `get_prerequisites(canonical_id="c_tzimtzum")`
    returns the ancestors a learner needs first. These give you the *foundational*
    end of the sequence and the climb order — study prerequisites before the target.
-3. **Place it in the macro map.** `browse_constellation(constellation_id="<the
+4. **Place it in the macro map.** `browse_constellation(constellation_id="<the
    constellation the concept belongs to>")` (start from `list_galaxies()` if you
    need to find it) to see sibling concepts and where the topic widens.
-4. **Order foundational → advanced.** Lay out the steps: each prerequisite first,
+5. **Order foundational → advanced.** Lay out the steps: each prerequisite first,
    then the target concept, then 1–2 advanced neighbors that extend it. Use the
    `difficulty` from `get_concept` to break ties and to flag where the climb steepens.
-5. **Anchor each step in a text.** For every step, attach one real source so the
+6. **Anchor each step in a text.** For every step, attach one real source so the
    outline is studyable, not abstract:
    `search_corpus(query="tzimtzum self-limitation creation", text_filter="tanya")`.
    Use the returned reference; don't invent one.
@@ -79,7 +91,12 @@ whole arc at the top.
 
 ## Notes / limits
 
-- The DAG is the authority on order — don't reorder from intuition against it.
+- The DAG is the authority on pedagogical order — don't reorder from intuition
+  against it. It is not a chronology; for that use `get_temporal_neighbors`, which
+  returns `earlier`/`later` with `era_span`.
+- Corridor `anchor_id`s use a different identifier scheme from canonical ids
+  (`gen.1.1-2`, not `bereishit_1_1`). Use the `deep_link` the corridor returns rather
+  than converting between them.
 - If a concept isn't in the graph, `search_concepts` will return the nearest
   matches; pick a real one or tell the user the exact concept isn't indexed.
 - Attach only real anchor texts (from `search_corpus`/`lookup_passage`). Don't
